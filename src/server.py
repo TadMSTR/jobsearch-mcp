@@ -11,6 +11,7 @@ from fastmcp import FastMCP, Context
 from .sources.adzuna import search_adzuna, get_salary_insights
 from .sources.rss import search_remotive, search_weworkremotely, search_jobicy
 from .sources.scraper import search_linkedin
+from .sources.jobspy import search_jobspy, JOBSPY_SITES
 from .db import (
     init_db, mark_job_seen, mark_job_applied, get_tracked_jobs,
     get_all_tracked_jobs, update_job_status, add_job_note, VALID_STATUSES,
@@ -46,18 +47,45 @@ async def search_jobs(
     ctx: Context = None,
 ) -> dict:
     """Search for jobs across multiple sources. Returns deduplicated results.
-    Sources: adzuna, remotive, weworkremotely, jobicy, linkedin"""
+    Default sources: adzuna, remotive, weworkremotely, jobicy, linkedin.
+    Optional (scraping-based, slower, rate-limited): indeed, glassdoor, ziprecruiter.
+    The optional sources use python-jobspy and are NOT included by default — add them
+    to the sources list explicitly when the user asks for broader coverage."""
     results = []
+    source_status: dict[str, str] = {}
+
     if "adzuna" in sources:
-        results += await search_adzuna(query, location, remote_only)
+        adzuna_results = await search_adzuna(query, location, remote_only)
+        results += adzuna_results
+        source_status["adzuna"] = "ok" if adzuna_results else "no_results"
     if "remotive" in sources:
-        results += await search_remotive(query)
+        remotive_results = await search_remotive(query)
+        results += remotive_results
+        source_status["remotive"] = "ok" if remotive_results else "no_results"
     if "weworkremotely" in sources:
-        results += await search_weworkremotely(query)
+        wwr_results = await search_weworkremotely(query)
+        results += wwr_results
+        source_status["weworkremotely"] = "ok" if wwr_results else "no_results"
     if "jobicy" in sources:
-        results += await search_jobicy(query)
+        jobicy_results = await search_jobicy(query)
+        results += jobicy_results
+        source_status["jobicy"] = "ok" if jobicy_results else "no_results"
     if "linkedin" in sources:
-        results += await search_linkedin(query, location, remote_only)
+        linkedin_results = await search_linkedin(query, location, remote_only)
+        results += linkedin_results
+        source_status["linkedin"] = "ok" if linkedin_results else "no_results"
+
+    # Handle jobspy sources (indeed, glassdoor, ziprecruiter) — opt-in only
+    jobspy_requested = [s for s in sources if s in JOBSPY_SITES]
+    if jobspy_requested:
+        jobspy_result = await search_jobspy(
+            query=query,
+            location=location,
+            remote_only=remote_only,
+            sites=jobspy_requested,
+        )
+        results += jobspy_result["jobs"]
+        source_status.update(jobspy_result["source_status"])
 
     seen_urls: set[str] = set()
     deduped = []
@@ -65,7 +93,7 @@ async def search_jobs(
         if job["url"] not in seen_urls:
             seen_urls.add(job["url"])
             deduped.append(job)
-    return {"count": len(deduped), "jobs": deduped}
+    return {"count": len(deduped), "source_status": source_status, "jobs": deduped}
 
 @mcp.tool()
 async def get_job_detail(url: str) -> dict:

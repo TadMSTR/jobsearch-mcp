@@ -46,7 +46,7 @@ You don't have to use every tool — an agent can search and score without ever 
 
 | Tool | Description |
 |------|-------------|
-| `search_jobs` | Search across Adzuna, Remotive, WeWorkRemotely, Jobicy, and LinkedIn. Returns deduplicated results. Supports `query`, `location`, `remote_only`, and `sources` params. |
+| `search_jobs` | Search across Adzuna, Remotive, WeWorkRemotely, Jobicy, and LinkedIn. Returns deduplicated results with per-source status. Supports `query`, `location`, `remote_only`, and `sources` params. **Optional sources:** `indeed`, `glassdoor`, `ziprecruiter` (via python-jobspy, scraping-based, rate-limited — not included by default, add explicitly). |
 | `get_job_detail` | Fetch a clean, full job description from a URL via Firecrawl. |
 | `check_active` | Check whether a listing is still active. Returns `active=True/False/None` and the signal that triggered the result. |
 | `salary_insights` | Get salary intelligence for a job title or query. Returns a summary (min/max/avg/median from live listings), a histogram of salary distribution bands, and a monthly trend — all via Adzuna. |
@@ -210,7 +210,8 @@ jobsearch-mcp/
         ├── __init__.py
         ├── adzuna.py    # Adzuna API
         ├── rss.py       # Remotive, WeWorkRemotely, Jobicy (RSS)
-        └── scraper.py   # LinkedIn (Playwright scraper)
+        ├── scraper.py   # LinkedIn (Playwright scraper)
+        └── jobspy.py    # Indeed, Glassdoor, ZipRecruiter (python-jobspy, opt-in)
 ```
 
 ---
@@ -218,6 +219,7 @@ jobsearch-mcp/
 ## Notes
 
 - **LinkedIn scraping** uses Playwright/Chromium. Results depend on LinkedIn's current page structure and may break without notice. The other sources (Adzuna API, RSS feeds) are stable.
+- **Indeed, Glassdoor, ZipRecruiter** are optional scraping-based sources via python-jobspy. They are **not included in the default search** — add them to the `sources` list explicitly. These sites actively fight scrapers, so expect occasional failures. The server uses a global rate limiter (one jobspy call at a time, 12s minimum gap) and per-site exponential backoff (60s → 15min) to avoid IP blocks. If a site returns errors, it's automatically backed off while others continue working.
 - **Qdrant collection** (`jobs`) is created automatically on first use. No manual setup needed.
 - **Voyage AI** uses separate `document`/`query` input types — jobs are indexed as documents, resume/query text is embedded as a query. This asymmetric approach produces better match quality than symmetric embedding.
 - **`score_fit`** uses `claude-haiku-4-5` for speed and cost. JD is truncated to 6000 chars, resume to 3000 chars.
