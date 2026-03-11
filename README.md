@@ -84,7 +84,7 @@ You'll need accounts/keys for the following services before deploying:
 | Service | What it does here | How to get credentials |
 |---------|------------------|----------------------|
 | **Adzuna** | Job search API + salary data | Free API key at [developer.adzuna.com](https://developer.adzuna.com/) |
-| **Firecrawl** | Extracts clean text from job listing URLs | Self-host via Docker ([github.com/mendableai/firecrawl](https://github.com/mendableai/firecrawl)) or use the hosted API |
+| **Firecrawl Simple** | Extracts clean text from job listing URLs | Self-host via Docker ([github.com/trieve-ai/firecrawl-simple](https://github.com/trieve-ai/firecrawl-simple)) — a lightweight, no-auth fork of Firecrawl |
 | **Voyage AI** | Generates embeddings for semantic job matching | API key at [dash.voyageai.com](https://dash.voyageai.com/) |
 | **Anthropic** | Powers the `score_fit` resume analysis (uses Haiku) | API key at [console.anthropic.com](https://console.anthropic.com/) |
 
@@ -100,7 +100,7 @@ Postgres and Qdrant are included in the Docker stack — no external setup neede
 | Postgres 16 | Per-user job tracking and pipeline state |
 | Qdrant | Vector index for semantic job matching |
 | Voyage AI (`voyage-3`) | Job and resume embeddings |
-| Firecrawl | Full job description extraction |
+| Firecrawl Simple | Full job description extraction |
 | Claude (`claude-haiku-4-5`) | Resume/JD fit scoring |
 
 ---
