@@ -126,26 +126,13 @@ The project ships as a Docker Compose stack with three containers:
    cd jobsearch-mcp
    ```
 
-2. **Create your `.env` file** (in the same directory as `docker-compose.yml`):
+2. **Create your `.env` file** from the template:
 
-   ```env
-   # Postgres
-   POSTGRES_USER=jobsearch
-   POSTGRES_PASSWORD=<your-password>
-
-   # Adzuna API
-   ADZUNA_APP_ID=
-   ADZUNA_APP_KEY=
-
-   # Firecrawl — URL to your Firecrawl instance
-   FIRECRAWL_URL=http://localhost:3002
-
-   # Voyage AI
-   VOYAGE_API_KEY=
-
-   # Anthropic — used by score_fit
-   ANTHROPIC_API_KEY=
+   ```bash
+   cp .env.example .env
    ```
+
+   Then fill in your API keys. See [`.env.example`](.env.example) for details on each variable.
 
 3. **Start the stack:**
 
@@ -207,8 +194,11 @@ docker compose restart librechat
 ```
 jobsearch-mcp/
 ├── Dockerfile
-├── requirements.txt
 ├── docker-compose.yml
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── LICENSE
 └── src/
     ├── __init__.py
     ├── server.py        # FastMCP instance and all tool definitions
