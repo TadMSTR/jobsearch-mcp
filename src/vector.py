@@ -1,25 +1,21 @@
-"""Qdrant vector storage with Voyage AI embeddings for job matching."""
+"""Qdrant vector storage with Ollama bge-m3 embeddings for job matching."""
+import logging
 import os
 import uuid
-import voyageai
+
+import httpx
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
+logger = logging.getLogger(__name__)
+
 QDRANT_URL = os.getenv("QDRANT_URL", "http://jobsearch-qdrant:6333")
-VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY", "")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "")
+EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "bge-m3")
 COLLECTION = "jobs"
-EMBEDDING_MODEL = "voyage-3"
-VECTOR_DIM = 1024  # voyage-3 output dimension
+VECTOR_DIM = 1024  # bge-m3 output dimension — matches voyage-3, no schema change needed
 
 _qdrant: AsyncQdrantClient | None = None
-_voyage: voyageai.AsyncClient | None = None
-
-
-def _get_voyage() -> voyageai.AsyncClient:
-    global _voyage
-    if _voyage is None:
-        _voyage = voyageai.AsyncClient(api_key=VOYAGE_API_KEY)
-    return _voyage
 
 
 async def get_qdrant() -> AsyncQdrantClient:
@@ -35,16 +31,24 @@ async def get_qdrant() -> AsyncQdrantClient:
             )
     return _qdrant
 
+
+async def _embed(texts: list[str]) -> list[list[float]]:
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{OLLAMA_HOST}/api/embed",
+            json={"model": EMBED_MODEL, "input": texts},
+        )
+        resp.raise_for_status()
+        return resp.json()["embeddings"]
+
+
 async def embed_document(text: str) -> list[float]:
-    voyage = _get_voyage()
-    result = await voyage.embed([text], model=EMBEDDING_MODEL, input_type="document")
-    return result.embeddings[0]
+    return (await _embed([text]))[0]
 
 
 async def embed_query(text: str) -> list[float]:
-    voyage = _get_voyage()
-    result = await voyage.embed([text], model=EMBEDDING_MODEL, input_type="query")
-    return result.embeddings[0]
+    # bge-m3 is symmetric — no input_type distinction unlike Voyage AI
+    return (await _embed([text]))[0]
 
 
 async def index_job(url: str, title: str, company: str, content: str) -> str:

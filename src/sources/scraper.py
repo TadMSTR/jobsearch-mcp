@@ -1,5 +1,17 @@
 """Light Playwright scraping for LinkedIn job listings — low frequency only."""
+import asyncio
+import logging
+import random
+
 from playwright.async_api import async_playwright
+
+logger = logging.getLogger(__name__)
+
+_LINKEDIN_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0.0.0 Safari/537.36"
+)
 
 
 async def search_linkedin(query: str, location: str = "", remote_only: bool = False) -> list[dict]:
@@ -12,12 +24,13 @@ async def search_linkedin(query: str, location: str = "", remote_only: bool = Fa
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+            context = await browser.new_context(user_agent=_LINKEDIN_UA)
+            page = await context.new_page()
             await page.goto(url, timeout=20000)
             await page.wait_for_selector(".job-search-card", timeout=10000)
 
             cards = await page.query_selector_all(".job-search-card")
-            for card in cards[:15]:
+            for card in cards[:10]:  # capped at 10 to reduce exposure
                 title_el = await card.query_selector(".job-search-card__title")
                 company_el = await card.query_selector(".job-search-card__company-name")
                 location_el = await card.query_selector(".job-search-card__location")
@@ -38,10 +51,13 @@ async def search_linkedin(query: str, location: str = "", remote_only: bool = Fa
                         "source": "linkedin",
                         "salary_min": None,
                         "salary_max": None,
+                        "date_posted": "",
                     })
+                    # 1-2s jitter between cards
+                    await asyncio.sleep(random.uniform(1.0, 2.0))
 
             await browser.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("linkedin scrape failed: %s", type(e).__name__)
 
     return results

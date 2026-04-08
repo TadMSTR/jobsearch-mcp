@@ -79,6 +79,7 @@ def _normalize_job(row: dict, site: str) -> dict:
         "salary_min": row.get("min_amount"),
         "salary_max": row.get("max_amount"),
         "salary_is_predicted": 0,
+        "date_posted": str(row.get("date_posted", "")),
     }
 
 
@@ -139,7 +140,7 @@ async def search_jobspy(
         for site in active_sites:
             jobspy_name = JOBSPY_SITES[site]
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 jobs_df = await loop.run_in_executor(
                     None,
                     partial(
