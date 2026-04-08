@@ -21,6 +21,11 @@ services:
       - USAJOBS_EMAIL=${USAJOBS_EMAIL:-}
       - FINDWORK_API_KEY=${FINDWORK_API_KEY:-}
       - MCP_PORT=8383
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       jobsearch-postgres:
         condition: service_healthy

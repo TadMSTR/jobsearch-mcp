@@ -27,6 +27,7 @@ _PRIVATE_NETS = [
     ipaddress.ip_network("169.254.0.0/16"),
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),   # IPv6 link-local
 ]
 
 
@@ -34,7 +35,7 @@ def _validate_url(url: str) -> None:
     """Reject non-https URLs and RFC 1918/loopback destinations."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"URL scheme '{parsed.scheme}' not allowed — use https://")
+        raise ValueError(f"URL scheme '{parsed.scheme}' not allowed")
     host = parsed.hostname or ""
     try:
         addr = ipaddress.ip_address(host)

@@ -7,11 +7,12 @@ from ..db import (
 )
 
 
-def _get_user_id(ctx: Context) -> str:
+def _get_user_id(ctx: Context) -> str | None:
     try:
-        return ctx.request_context.request.headers.get("X-User-ID", "anonymous")
+        uid = ctx.request_context.request.headers.get("X-User-ID", "")
+        return uid if uid else None
     except Exception:
-        return "anonymous"
+        return None
 
 
 def register_tools(mcp):
@@ -20,7 +21,9 @@ def register_tools(mcp):
         url: str, title: str = "", company: str = "", ctx: Context = None
     ) -> dict:
         """Mark a job as seen for the current user."""
-        user_id = _get_user_id(ctx) if ctx else "anonymous"
+        user_id = _get_user_id(ctx) if ctx else None
+        if not user_id:
+            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
         await mark_job_seen(user_id, url, title, company)
         return {"status": "ok", "url": url, "user_id": user_id}
 
@@ -29,7 +32,9 @@ def register_tools(mcp):
         url: str, title: str = "", company: str = "", ctx: Context = None
     ) -> dict:
         """Mark a job as applied for the current user."""
-        user_id = _get_user_id(ctx) if ctx else "anonymous"
+        user_id = _get_user_id(ctx) if ctx else None
+        if not user_id:
+            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
         await mark_job_applied(user_id, url, title, company)
         return {"status": "ok", "url": url, "user_id": user_id}
 
@@ -38,7 +43,9 @@ def register_tools(mcp):
         """Get tracked jobs for the current user.
         Status options: 'all', 'seen', 'applied', 'interviewing', 'offered', 'rejected', 'closed'.
         Defaults to 'all' — returns full pipeline ordered by stage."""
-        user_id = _get_user_id(ctx) if ctx else "anonymous"
+        user_id = _get_user_id(ctx) if ctx else None
+        if not user_id:
+            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
         if status == "all":
             jobs = await get_all_tracked_jobs(user_id)
         else:
@@ -58,7 +65,9 @@ def register_tools(mcp):
                 "status": "error",
                 "error": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_STATUSES))}",
             }
-        user_id = _get_user_id(ctx) if ctx else "anonymous"
+        user_id = _get_user_id(ctx) if ctx else None
+        if not user_id:
+            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
         found = await update_job_status(user_id, url, status)
         if not found:
             return {"status": "error", "error": "Job not found — mark it as seen or applied first"}
@@ -68,7 +77,9 @@ def register_tools(mcp):
     async def add_note(url: str, note: str, ctx: Context = None) -> dict:
         """Add a note to a tracked job (appended, not replaced).
         Useful for recording recruiter contacts, interview feedback, referrals, etc."""
-        user_id = _get_user_id(ctx) if ctx else "anonymous"
+        user_id = _get_user_id(ctx) if ctx else None
+        if not user_id:
+            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
         found = await add_job_note(user_id, url, note)
         if not found:
             return {"status": "error", "error": "Job not found — mark it as seen or applied first"}

@@ -9,7 +9,6 @@ from ..db import get_tracked_jobs
 from ..enricher import enrich_job
 from ..sources.adzuna import search_adzuna, get_salary_insights
 from ..sources.rss import search_remotive, search_weworkremotely, search_jobicy
-from ..sources.scraper import search_linkedin
 from ..sources.jobspy import search_jobspy, JOBSPY_SITES
 from ..sources.usajobs import search_usajobs
 from ..sources.findwork import search_findwork
@@ -46,7 +45,7 @@ def register_tools(mcp):
     ) -> dict:
         """Search for jobs across multiple sources. Returns deduplicated results sorted by recency.
         Default sources: adzuna, remotive, weworkremotely, jobicy, usajobs.
-        Optional: findwork, themuse (tech/culture focus), linkedin (scraping).
+        Optional: findwork, themuse (tech/culture focus).
         Slow opt-in scrapers: indeed, glassdoor, ziprecruiter."""
         results = []
         source_status: dict[str, str] = {}
@@ -67,8 +66,6 @@ def register_tools(mcp):
             tasks.append(_run("weworkremotely", search_weworkremotely(query)))
         if "jobicy" in sources:
             tasks.append(_run("jobicy", search_jobicy(query)))
-        if "linkedin" in sources:
-            tasks.append(_run("linkedin", search_linkedin(query, location, remote_only)))
         if "usajobs" in sources:
             tasks.append(_run("usajobs", search_usajobs(query, location)))
         if "findwork" in sources:

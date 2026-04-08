@@ -6,11 +6,12 @@ from ..enricher import enrich_job
 from ..scorer import score_fit as _score_fit, draft_cover_letter as _draft_cover_letter
 
 
-def _get_user_id(ctx: Context) -> str:
+def _get_user_id(ctx: Context) -> str | None:
     try:
-        return ctx.request_context.request.headers.get("X-User-ID", "anonymous")
+        uid = ctx.request_context.request.headers.get("X-User-ID", "")
+        return uid if uid else None
     except Exception:
-        return "anonymous"
+        return None
 
 
 async def _resolve_resume(resume: str | None, ctx: Context | None) -> str | None:
