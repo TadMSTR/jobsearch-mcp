@@ -9,16 +9,47 @@ services:
     environment:
       - POSTGRES_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@jobsearch-postgres:5432/jobsearch
       - QDRANT_URL=http://jobsearch-qdrant:6333
+      - VALKEY_URL=redis://jobsearch-valkey:6379
       - ADZUNA_APP_ID=${ADZUNA_APP_ID}
       - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
       - FIRECRAWL_URL=${FIRECRAWL_URL}
-      - VOYAGE_API_KEY=${VOYAGE_API_KEY}
+      - CRAWL4AI_URL=${CRAWL4AI_URL:-http://host.docker.internal:11235}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_HOST=${OLLAMA_HOST}
+      - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-bge-m3}
+      - USAJOBS_API_KEY=${USAJOBS_API_KEY:-}
+      - USAJOBS_EMAIL=${USAJOBS_EMAIL:-}
+      - FINDWORK_API_KEY=${FINDWORK_API_KEY:-}
       - MCP_PORT=8383
     depends_on:
       jobsearch-postgres:
         condition: service_healthy
       jobsearch-qdrant:
+        condition: service_started
+      jobsearch-valkey:
+        condition: service_started
+    networks:
+      - jobsearch-net
+      - claudebox-net
+    restart: unless-stopped
+
+  job-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job-watcher
+    command: >
+      sh -c "while true; do python -m src.job_watcher; sleep ${JOB_WATCH_INTERVAL_SECONDS:-14400}; done"
+    env_file: job-watcher.env
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      jobsearch-postgres:
+        condition: service_healthy
+      jobsearch-valkey:
         condition: service_started
     networks:
       - jobsearch-net
@@ -51,9 +82,18 @@ services:
       - jobsearch-net
     restart: unless-stopped
 
+  jobsearch-valkey:
+    image: valkey/valkey:7-alpine
+    container_name: jobsearch-valkey
+    networks:
+      - jobsearch-net
+    restart: unless-stopped
+
 networks:
   jobsearch-net:
     name: jobsearch-net
+  claudebox-net:
+    external: true
 
 volumes:
   postgres-data:

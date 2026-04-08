@@ -1,4 +1,5 @@
 .env
+job-watcher.env
 __pycache__/
 *.pyc
 .venv/
