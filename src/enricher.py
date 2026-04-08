@@ -34,8 +34,8 @@ _PRIVATE_NETS = [
 def _validate_url(url: str) -> None:
     """Reject non-https URLs and RFC 1918/loopback destinations."""
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"URL scheme '{parsed.scheme}' not allowed")
+    if parsed.scheme != "https":
+        raise ValueError(f"URL scheme '{parsed.scheme}' not allowed — must be https")
     host = parsed.hostname or ""
     try:
         addr = ipaddress.ip_address(host)
