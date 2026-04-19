@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `score_fit`, `build_profile`, `tailor_resume`, `cover_letter_brief` now return a readable error message when `ANTHROPIC_API_KEY` is not set, instead of a bare exception class name
+- `index_job`, `match_jobs` now return a readable error message when `OLLAMA_HOST` is not set
+
+### Changed
+- README Prerequisites section restructured into required / feature-specific / optional tiers
+- Added "What you need" capability matrix to README
+
 ## [2.1.0] - 2026-04-08
 
 ### Security

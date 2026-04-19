@@ -1,8 +1,3 @@
----
-tier: showcase
-promoted: null
----
-
 # AGENTS.md — jobsearch-mcp
 
 Self-hosted MCP server that turns a LibreChat agent into a full job search assistant — searching across multiple boards, building resume profiles, scoring fit, and tracking applications. Built with FastMCP for multi-user deployments.
