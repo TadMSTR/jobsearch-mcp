@@ -1,4 +1,5 @@
 """Tests for enricher.py — SSRF validation and multi-tier fallback logic."""
+
 import pytest
 import respx
 import httpx
@@ -31,9 +32,10 @@ class TestValidateUrl:
         # Should not raise
         _validate_url("https://boards.greenhouse.io/company/jobs/12345")
 
-    def test_accepts_http_public(self):
-        # http scheme also accepted (for job boards that don't redirect)
-        _validate_url("http://example.com/jobs/123")
+    def test_rejects_http_public(self):
+        # http is rejected — HTTPS-only policy applied in v2.1.0 security fix
+        with pytest.raises(ValueError, match="scheme"):
+            _validate_url("http://example.com/jobs/123")
 
     def test_accepts_hostname(self):
         # Hostname (non-IP) passes validation
@@ -47,7 +49,12 @@ class TestFetchFirecrawl:
             mock.post("http://firecrawl-api:3002/v1/scrape").mock(
                 return_value=httpx.Response(
                     200,
-                    json={"data": {"markdown": "Job description text", "metadata": {"title": "Engineer"}}},
+                    json={
+                        "data": {
+                            "markdown": "Job description text",
+                            "metadata": {"title": "Engineer"},
+                        }
+                    },
                 )
             )
             result = await _fetch_firecrawl("https://example.com/job")
@@ -76,9 +83,7 @@ class TestFetchRaw:
 
     async def test_returns_empty_on_failure(self):
         with respx.mock() as mock:
-            mock.get("https://example.com/job").mock(
-                return_value=httpx.Response(404)
-            )
+            mock.get("https://example.com/job").mock(return_value=httpx.Response(404))
             result = await _fetch_raw("https://example.com/job")
         assert result["content"] == ""
         assert "error" in result
@@ -89,7 +94,10 @@ class TestEnrichJobSsrf:
     async def test_blocks_private_ip(self):
         result = await enrich_job("https://192.168.1.1/admin")
         assert result["content"] == ""
-        assert "private" in result["error"].lower() or "private" in result.get("error", "").lower()
+        assert (
+            "private" in result["error"].lower()
+            or "private" in result.get("error", "").lower()
+        )
 
     async def test_blocks_loopback(self):
         result = await enrich_job("https://127.0.0.1/internal")

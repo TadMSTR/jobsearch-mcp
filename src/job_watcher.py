@@ -1,6 +1,7 @@
 """Background job watcher — polls for new listings matching user profiles, sends email alerts.
 Deployed as a separate Docker service (not PM2). Runs on a configurable interval.
 Logs to stdout with ISO timestamps — captured by Docker and Alloy pipeline."""
+
 import asyncio
 import logging
 import os
@@ -31,9 +32,16 @@ SMTP_FROM = os.getenv("SMTP_FROM", "")
 
 
 def _check_smtp_env() -> None:
-    missing = [v for v in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM") if not os.getenv(v)]
+    missing = [
+        v
+        for v in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM")
+        if not os.getenv(v)
+    ]
     if missing:
-        logger.error("Required SMTP env vars missing: %s — job_watcher cannot send alerts", missing)
+        logger.error(
+            "Required SMTP env vars missing: %s — job_watcher cannot send alerts",
+            missing,
+        )
         sys.exit(1)
 
 
@@ -75,12 +83,14 @@ async def _search_for_roles(roles: list[str], location: str = "") -> list[dict]:
     """Run concurrent searches for all target roles across default sources."""
     tasks = []
     for role in roles[:3]:  # cap to 3 roles to avoid excessive API calls
-        tasks.extend([
-            search_adzuna(role, location),
-            search_remotive(role),
-            search_weworkremotely(role),
-            search_usajobs(role, location),
-        ])
+        tasks.extend(
+            [
+                search_adzuna(role, location),
+                search_remotive(role),
+                search_weworkremotely(role),
+                search_usajobs(role, location),
+            ]
+        )
     results = await asyncio.gather(*tasks, return_exceptions=True)
     jobs = []
     seen_urls: set[str] = set()
@@ -125,7 +135,11 @@ async def _process_user(user_id: str, profile: dict) -> None:
 
     new_jobs = [j for j in all_jobs if j.get("url") and j["url"] not in tracked_urls]
     if not new_jobs:
-        logger.info("no new jobs for user %s (all %d results already tracked)", user_id, len(all_jobs))
+        logger.info(
+            "no new jobs for user %s (all %d results already tracked)",
+            user_id,
+            len(all_jobs),
+        )
         return
 
     logger.info("found %d new jobs for user %s", len(new_jobs), user_id)
@@ -133,9 +147,13 @@ async def _process_user(user_id: str, profile: dict) -> None:
     # Mark new jobs as seen before notifying
     for job in new_jobs[:20]:
         try:
-            await mark_job_seen(user_id, job["url"], job.get("title", ""), job.get("company", ""))
+            await mark_job_seen(
+                user_id, job["url"], job.get("title", ""), job.get("company", "")
+            )
         except Exception as e:
-            logger.warning("mark_job_seen failed for %s: %s", job["url"], type(e).__name__)
+            logger.warning(
+                "mark_job_seen failed for %s: %s", job["url"], type(e).__name__
+            )
 
     await _send_email(notification_email, new_jobs[:10])
 
@@ -158,7 +176,9 @@ async def run_once() -> None:
         try:
             await _process_user(entry["user_id"], entry["profile"])
         except Exception as e:
-            logger.error("error processing user %s: %s", entry["user_id"], type(e).__name__)
+            logger.error(
+                "error processing user %s: %s", entry["user_id"], type(e).__name__
+            )
 
     logger.info("watcher cycle complete")
 

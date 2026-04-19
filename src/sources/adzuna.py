@@ -10,7 +10,9 @@ ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs"
 
 
-async def search_adzuna(query: str, location: str = "", remote_only: bool = False) -> list[dict]:
+async def search_adzuna(
+    query: str, location: str = "", remote_only: bool = False
+) -> list[dict]:
     if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
         return []
 

@@ -35,7 +35,6 @@ services:
         condition: service_started
     networks:
       - jobsearch-net
-      - claudebox-net
     restart: unless-stopped
 
   job-watcher:
@@ -94,11 +93,11 @@ services:
       - jobsearch-net
     restart: unless-stopped
 
+# To connect to an external Docker network (e.g., for LibreChat),
+# add it here or use a docker-compose.override.yml
 networks:
   jobsearch-net:
     name: jobsearch-net
-  claudebox-net:
-    external: true
 
 volumes:
   postgres-data:

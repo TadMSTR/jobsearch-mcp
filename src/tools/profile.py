@@ -1,5 +1,4 @@
 """Resume profile management and tailoring tools."""
-import json
 
 from fastmcp import Context
 
@@ -25,19 +24,32 @@ def register_tools(mcp):
         Required fields: name, email, skills, experience. See build_profile for the full schema."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         await upsert_user_profile(user_id, profile)
-        return {"status": "ok", "user_id": user_id, "fields_saved": list(profile.keys())}
+        return {
+            "status": "ok",
+            "user_id": user_id,
+            "fields_saved": list(profile.keys()),
+        }
 
     @mcp.tool()
     async def get_profile(ctx: Context = None) -> dict:
         """Retrieve your stored resume profile."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         profile = await get_user_profile(user_id)
         if not profile:
-            return {"status": "not_found", "message": "No profile stored. Use build_profile or save_profile to create one."}
+            return {
+                "status": "not_found",
+                "message": "No profile stored. Use build_profile or save_profile to create one.",
+            }
         return {"status": "ok", "profile": profile}
 
     @mcp.tool()
@@ -45,7 +57,10 @@ def register_tools(mcp):
         """Delete your stored resume profile and all associated data."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         found = await delete_user_profile(user_id)
         if not found:
             return {"status": "not_found", "message": "No profile to delete"}
@@ -60,8 +75,11 @@ def register_tools(mcp):
             return {"status": "error", "error": "raw_text is required"}
         try:
             profile = await build_profile_from_text(raw_text)
-            return {"status": "ok", "profile": profile,
-                    "message": "Review the profile above, then call save_profile to store it."}
+            return {
+                "status": "ok",
+                "profile": profile,
+                "message": "Review the profile above, then call save_profile to store it.",
+            }
         except Exception as e:
             return {"status": "error", "error": type(e).__name__}
 
@@ -73,21 +91,33 @@ def register_tools(mcp):
         Returns the tailored profile for review — does NOT overwrite your stored profile."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
 
         profile = await get_user_profile(user_id)
         if not profile:
-            return {"status": "error", "error": "No stored profile found. Use build_profile or save_profile first."}
+            return {
+                "status": "error",
+                "error": "No stored profile found. Use build_profile or save_profile first.",
+            }
 
         enriched = await enrich_job(url)
         if enriched.get("error") or not enriched.get("content"):
-            return {"status": "error", "url": url, "error": enriched.get("error", "no content")}
+            return {
+                "status": "error",
+                "url": url,
+                "error": enriched.get("error", "no content"),
+            }
 
         try:
             result = await tailor_resume_to_jd(jd=enriched["content"], profile=profile)
             result["url"] = url
             result["title"] = enriched.get("title", "")
-            result["message"] = "Tailored profile above is for this job only — your stored profile is unchanged."
+            result["message"] = (
+                "Tailored profile above is for this job only — your stored profile is unchanged."
+            )
             return result
         except Exception as e:
             return {"status": "error", "url": url, "error": type(e).__name__}

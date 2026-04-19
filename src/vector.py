@@ -1,4 +1,5 @@
 """Qdrant vector storage with Ollama bge-m3 embeddings for job matching."""
+
 import logging
 import os
 import uuid
@@ -90,12 +91,14 @@ async def search_by_text(
         payload = hit.payload or {}
         if payload.get("url") in exclude_set:
             continue
-        results.append({
-            "url": payload.get("url"),
-            "title": payload.get("title"),
-            "company": payload.get("company"),
-            "score": round(hit.score, 4),
-        })
+        results.append(
+            {
+                "url": payload.get("url"),
+                "title": payload.get("title"),
+                "company": payload.get("company"),
+                "score": round(hit.score, 4),
+            }
+        )
         if len(results) >= top_k:
             break
     return results

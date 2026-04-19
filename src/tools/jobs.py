@@ -1,4 +1,5 @@
 """Job search, enrichment, indexing, and matching tools."""
+
 import asyncio
 import math
 from datetime import datetime, timezone
@@ -40,7 +41,13 @@ def register_tools(mcp):
         query: str,
         location: str = "",
         remote_only: bool = False,
-        sources: list[str] = ["adzuna", "remotive", "weworkremotely", "jobicy", "usajobs"],
+        sources: list[str] = [
+            "adzuna",
+            "remotive",
+            "weworkremotely",
+            "jobicy",
+            "usajobs",
+        ],
         ctx: Context = None,
     ) -> dict:
         """Search for jobs across multiple sources. Returns deduplicated results sorted by recency.
@@ -49,8 +56,6 @@ def register_tools(mcp):
         Slow opt-in scrapers: indeed, glassdoor, ziprecruiter."""
         results = []
         source_status: dict[str, str] = {}
-
-        fetch_tasks = []
 
         async def _run(name: str, coro):
             items = await coro
@@ -79,7 +84,10 @@ def register_tools(mcp):
         jobspy_requested = [s for s in sources if s in JOBSPY_SITES]
         if jobspy_requested:
             jobspy_result = await search_jobspy(
-                query=query, location=location, remote_only=remote_only, sites=jobspy_requested
+                query=query,
+                location=location,
+                remote_only=remote_only,
+                sites=jobspy_requested,
             )
             results.extend(jobspy_result["jobs"])
             source_status.update(jobspy_result["source_status"])
@@ -94,7 +102,9 @@ def register_tools(mcp):
         # Secondary sort by recency — only reorders when date_posted is present
         has_dates = any(j.get("date_posted") for j in deduped)
         if has_dates:
-            deduped.sort(key=lambda j: _recency_score(j.get("date_posted", "")), reverse=True)
+            deduped.sort(
+                key=lambda j: _recency_score(j.get("date_posted", "")), reverse=True
+            )
 
         return {"count": len(deduped), "source_status": source_status, "jobs": deduped}
 
@@ -110,12 +120,21 @@ def register_tools(mcp):
         Call this on listings you want findable via match_jobs."""
         enriched = await enrich_job(url)
         if enriched.get("error") or not enriched.get("content"):
-            return {"status": "error", "url": url, "error": enriched.get("error", "no content")}
+            return {
+                "status": "error",
+                "url": url,
+                "error": enriched.get("error", "no content"),
+            }
         resolved_title = title or enriched.get("title", "")
         point_id = await vector_index_job(
             url=url, title=resolved_title, company=company, content=enriched["content"]
         )
-        return {"status": "indexed", "url": url, "title": resolved_title, "point_id": point_id}
+        return {
+            "status": "indexed",
+            "url": url,
+            "title": resolved_title,
+            "point_id": point_id,
+        }
 
     @mcp.tool()
     async def match_jobs(
@@ -132,7 +151,9 @@ def register_tools(mcp):
             seen = await get_tracked_jobs(user_id, "seen")
             applied = await get_tracked_jobs(user_id, "applied")
             exclude_urls = [j["url"] for j in seen + applied]
-        results = await search_by_text(resume_or_query, top_k=top_k, exclude_urls=exclude_urls)
+        results = await search_by_text(
+            resume_or_query, top_k=top_k, exclude_urls=exclude_urls
+        )
         total_indexed = await get_index_count()
         return {"total_indexed": total_indexed, "count": len(results), "jobs": results}
 
@@ -165,7 +186,12 @@ def register_tools(mcp):
 
         enriched = await enrich_job(url)
         if enriched.get("error"):
-            return {"url": url, "active": None, "error": enriched["error"], "signal": "fetch_failed"}
+            return {
+                "url": url,
+                "active": None,
+                "error": enriched["error"],
+                "signal": "fetch_failed",
+            }
 
         content = enriched.get("content", "").lower()
         if not content:
@@ -216,7 +242,9 @@ def register_tools(mcp):
                 "max": round(max(salaries)),
                 "avg": round(sum(salaries) / n),
                 "median": round(
-                    salaries[n // 2] if n % 2 else (salaries[n // 2 - 1] + salaries[n // 2]) / 2
+                    salaries[n // 2]
+                    if n % 2
+                    else (salaries[n // 2 - 1] + salaries[n // 2]) / 2
                 ),
                 "note": "computed from listings with non-predicted salary data only",
             }

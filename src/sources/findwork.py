@@ -1,4 +1,5 @@
 """Findwork source — developer/tech jobs (free API key, no scraping)."""
+
 import logging
 import os
 
@@ -29,15 +30,17 @@ async def search_findwork(query: str) -> list[dict]:
 
     jobs = []
     for r in data.get("results", []):
-        jobs.append({
-            "title": r.get("role", ""),
-            "company": r.get("company_name", ""),
-            "location": r.get("location", "Remote"),
-            "url": r.get("url", ""),
-            "description": r.get("text", "")[:500],
-            "source": "findwork",
-            "salary_min": None,
-            "salary_max": None,
-            "date_posted": r.get("date_posted", ""),
-        })
+        jobs.append(
+            {
+                "title": r.get("role", ""),
+                "company": r.get("company_name", ""),
+                "location": r.get("location", "Remote"),
+                "url": r.get("url", ""),
+                "description": r.get("text", "")[:500],
+                "source": "findwork",
+                "salary_min": None,
+                "salary_max": None,
+                "date_posted": r.get("date_posted", ""),
+            }
+        )
     return jobs

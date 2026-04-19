@@ -1,4 +1,5 @@
 """Tests for scorer.py — output structure validation."""
+
 import json
 import pytest
 import respx
@@ -53,6 +54,7 @@ class TestScoreFit:
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
             from src.scorer import score_fit
+
             result = await score_fit(sample_jd, sample_resume)
 
         assert "overall_score" in result
@@ -70,6 +72,7 @@ class TestScoreFit:
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
             from src.scorer import score_fit
+
             result = await score_fit(sample_jd, sample_resume)
 
         assert 0 <= result["overall_score"] <= 100
@@ -81,6 +84,7 @@ class TestScoreFit:
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
             from src.scorer import score_fit
+
             result = await score_fit(sample_jd, sample_resume)
 
         assert result["recommendation"] in ("apply", "maybe", "skip")
@@ -95,12 +99,17 @@ class TestDraftCoverLetter:
                 return_value=_mock_claude_response(COVER_RESPONSE)
             )
             from src.scorer import draft_cover_letter
+
             result = await draft_cover_letter(sample_jd, sample_resume)
 
         required = [
-            "opening_angle", "key_requirements_to_address",
-            "experience_to_lead_with", "skills_to_emphasize",
-            "gaps_to_acknowledge", "tone", "suggested_closing",
+            "opening_angle",
+            "key_requirements_to_address",
+            "experience_to_lead_with",
+            "skills_to_emphasize",
+            "gaps_to_acknowledge",
+            "tone",
+            "suggested_closing",
         ]
         for field in required:
             assert field in result, f"Missing field: {field}"

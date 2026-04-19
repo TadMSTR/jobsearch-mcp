@@ -1,21 +1,16 @@
 # jobsearch-mcp
 
+[![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-6B57FF?logo=claude&logoColor=white)](https://claude.ai/code)
+[![CI](https://github.com/TadMSTR/jobsearch-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/TadMSTR/jobsearch-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A self-hosted MCP server that turns a LibreChat agent into a full job search assistant — from searching across multiple boards, to building and storing a resume profile, to scoring fit against listings, to tracking applications through a pipeline. Built with FastMCP for multi-user LibreChat deployments.
 
 **Search** across Adzuna, Remotive, WeWorkRemotely, Jobicy, USAJobs, and more. **Enrich** listings with full job descriptions via a multi-tier extraction pipeline. **Profile** your resume once and every scoring and tailoring tool uses it automatically. **Score** fit with a structured Claude-powered breakdown including ATS analysis. **Match** jobs semantically against your profile. **Track** the full pipeline per user in Postgres. **Watch** for new matches in the background and get email alerts.
 
 Most job search MCP tools do one thing — scrape listings or generate cover letters. This one connects the entire workflow so an agent can drive it end-to-end.
 
-## Screenshots
-
-<!-- TODO: Add screenshots of a LibreChat agent session showing the workflow -->
-<!-- Suggested screenshots:
-  1. Agent searching for jobs and returning results
-  2. score_fit output showing the structured breakdown
-  3. get_my_jobs showing the application pipeline
--->
-
-*Screenshots coming soon — showing an agent driving the full search → score → track workflow in LibreChat.*
+Built with [Claude Code](https://claude.ai/code) using the multi-agent workflow from [homelab-agent](https://github.com/TadMSTR/homelab-agent).
 
 ---
 
@@ -338,6 +333,32 @@ jobsearch-mcp/
 - **bge-m3 must be pulled** before the first `index_job` call: `ollama pull bge-m3`.
 - **Qdrant collection** (`jobs`) is created automatically on first use.
 - **Multi-user** — all state is partitioned by `X-User-ID`. Multiple LibreChat users on the same instance see only their own data.
+
+---
+
+## Security
+
+### URL validation
+
+All job listing URLs pass through `_validate_url` before enrichment. Only HTTPS URLs are accepted — HTTP is blocked to prevent cleartext credential exposure. Private/internal IP ranges (RFC 1918, loopback, link-local, IPv6 ULA) are blocked to prevent SSRF.
+
+### Container hardening
+
+All containers in the Docker stack run with:
+- `user: 1000:1000` — no root processes
+- `cap_drop: ALL` — no Linux capabilities
+- `no-new-privileges: true` — prevents privilege escalation
+- Isolated `jobsearch-net` bridge network — database and cache ports are not exposed to the host
+
+### Credential handling
+
+API keys (`ANTHROPIC_API_KEY`, `ADZUNA_APP_KEY`, `USAJOBS_API_KEY`, etc.) are read from environment variables and used only in outbound requests to their respective services. No credentials are stored or logged by the server.
+
+Resume and profile data are stored in Postgres and embedded locally via Ollama — they are not sent to any cloud embedding service.
+
+### Dependency auditing
+
+CI runs `pip-audit` on every push. Dependencies are pinned in `requirements.txt` for reproducible builds.
 
 ---
 
