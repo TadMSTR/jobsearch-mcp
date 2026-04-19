@@ -9,4 +9,5 @@ COPY src/ ./src/
 
 EXPOSE 8383
 
+USER 1000:1000
 CMD ["python", "-m", "src.server"]
