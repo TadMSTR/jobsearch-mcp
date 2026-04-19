@@ -52,4 +52,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Audit dependencies
-        run: pip-audit -r requirements.txt
+        # CVE-2025-46656 (markdownify) is a transitive dep of python-jobspy which
+        # hard-pins markdownify<0.14.0. Cannot upgrade until python-jobspy relaxes
+        # its constraint. Ignored until upstream fix is available.
+        run: pip-audit -r requirements.txt --ignore-vuln CVE-2025-46656
