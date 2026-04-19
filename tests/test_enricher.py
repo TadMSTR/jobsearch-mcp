@@ -32,9 +32,10 @@ class TestValidateUrl:
         # Should not raise
         _validate_url("https://boards.greenhouse.io/company/jobs/12345")
 
-    def test_accepts_http_public(self):
-        # http scheme also accepted (for job boards that don't redirect)
-        _validate_url("http://example.com/jobs/123")
+    def test_rejects_http_public(self):
+        # http is rejected — HTTPS-only policy applied in v2.1.0 security fix
+        with pytest.raises(ValueError, match="scheme"):
+            _validate_url("http://example.com/jobs/123")
 
     def test_accepts_hostname(self):
         # Hostname (non-IP) passes validation
