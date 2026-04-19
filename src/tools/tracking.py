@@ -1,9 +1,15 @@
 """Job pipeline tracking tools — mark seen/applied, get status, add notes."""
+
 from fastmcp import Context
 
 from ..db import (
-    mark_job_seen, mark_job_applied, get_tracked_jobs,
-    get_all_tracked_jobs, update_job_status, add_job_note, VALID_STATUSES,
+    mark_job_seen,
+    mark_job_applied,
+    get_tracked_jobs,
+    get_all_tracked_jobs,
+    update_job_status,
+    add_job_note,
+    VALID_STATUSES,
 )
 
 
@@ -23,7 +29,10 @@ def register_tools(mcp):
         """Mark a job as seen for the current user."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         await mark_job_seen(user_id, url, title, company)
         return {"status": "ok", "url": url, "user_id": user_id}
 
@@ -34,7 +43,10 @@ def register_tools(mcp):
         """Mark a job as applied for the current user."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         await mark_job_applied(user_id, url, title, company)
         return {"status": "ok", "url": url, "user_id": user_id}
 
@@ -45,7 +57,10 @@ def register_tools(mcp):
         Defaults to 'all' — returns full pipeline ordered by stage."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         if status == "all":
             jobs = await get_all_tracked_jobs(user_id)
         else:
@@ -67,10 +82,16 @@ def register_tools(mcp):
             }
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         found = await update_job_status(user_id, url, status)
         if not found:
-            return {"status": "error", "error": "Job not found — mark it as seen or applied first"}
+            return {
+                "status": "error",
+                "error": "Job not found — mark it as seen or applied first",
+            }
         return {"status": "ok", "url": url, "new_status": status}
 
     @mcp.tool()
@@ -79,8 +100,14 @@ def register_tools(mcp):
         Useful for recording recruiter contacts, interview feedback, referrals, etc."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
-            return {"status": "error", "error": "User identity required — X-User-ID header missing"}
+            return {
+                "status": "error",
+                "error": "User identity required — X-User-ID header missing",
+            }
         found = await add_job_note(user_id, url, note)
         if not found:
-            return {"status": "error", "error": "Job not found — mark it as seen or applied first"}
+            return {
+                "status": "error",
+                "error": "Job not found — mark it as seen or applied first",
+            }
         return {"status": "ok", "url": url, "note": note}

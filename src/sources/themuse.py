@@ -1,4 +1,5 @@
 """The Muse source — free API, no auth required. Includes company culture data."""
+
 import logging
 
 import httpx
@@ -35,16 +36,18 @@ async def search_themuse(query: str, location: str = "") -> list[dict]:
         company = r.get("company", {})
         locations = r.get("locations", [{}])
         loc_name = locations[0].get("name", "") if locations else ""
-        jobs.append({
-            "title": name,
-            "company": company.get("name", ""),
-            "location": loc_name,
-            "url": r.get("refs", {}).get("landing_page", ""),
-            "description": contents[:500],
-            "source": "themuse",
-            "salary_min": None,
-            "salary_max": None,
-            "date_posted": r.get("publication_date", ""),
-            "company_culture": company.get("description", "")[:300],
-        })
+        jobs.append(
+            {
+                "title": name,
+                "company": company.get("name", ""),
+                "location": loc_name,
+                "url": r.get("refs", {}).get("landing_page", ""),
+                "description": contents[:500],
+                "source": "themuse",
+                "salary_min": None,
+                "salary_max": None,
+                "date_posted": r.get("publication_date", ""),
+                "company_culture": company.get("description", "")[:300],
+            }
+        )
     return jobs[:20]

@@ -1,4 +1,5 @@
 """Tests for db.py — profile and job tracking functions (unit tests with mocked pool)."""
+
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -25,6 +26,7 @@ class TestGetUserProfile:
 
         with patch("src.db._pool", pool):
             from src.db import get_user_profile
+
             result = await get_user_profile("user123")
 
         assert result is None
@@ -37,6 +39,7 @@ class TestGetUserProfile:
 
         with patch("src.db._pool", pool):
             from src.db import get_user_profile
+
             result = await get_user_profile("user123")
 
         assert result is not None
@@ -51,6 +54,7 @@ class TestUpsertUserProfile:
 
         with patch("src.db._pool", pool):
             from src.db import upsert_user_profile
+
             await upsert_user_profile("user123", sample_profile)
 
         conn.execute.assert_called_once()
@@ -66,6 +70,7 @@ class TestDeleteUserProfile:
 
         with patch("src.db._pool", pool):
             from src.db import delete_user_profile
+
             result = await delete_user_profile("user123")
 
         assert result is False
@@ -76,6 +81,7 @@ class TestDeleteUserProfile:
 
         with patch("src.db._pool", pool):
             from src.db import delete_user_profile
+
             result = await delete_user_profile("user123")
 
         assert result is True
@@ -89,7 +95,10 @@ class TestMarkJobSeen:
 
         with patch("src.db._pool", pool):
             from src.db import mark_job_seen
-            await mark_job_seen("user123", "https://example.com/job", "Engineer", "Acme")
+
+            await mark_job_seen(
+                "user123", "https://example.com/job", "Engineer", "Acme"
+            )
 
         conn.execute.assert_called_once()
 
@@ -99,7 +108,10 @@ class TestMarkJobSeen:
 
         with patch("src.db._pool", pool):
             from src.db import mark_job_seen
-            await mark_job_seen("user123", "https://example.com/job", "Engineer", "Acme")
+
+            await mark_job_seen(
+                "user123", "https://example.com/job", "Engineer", "Acme"
+            )
 
         args = conn.execute.call_args[0]
         assert "user123" in args
@@ -114,6 +126,7 @@ class TestGetAllTrackedJobs:
 
         with patch("src.db._pool", pool):
             from src.db import get_all_tracked_jobs
+
             result = await get_all_tracked_jobs("user123")
 
         assert isinstance(result, list)

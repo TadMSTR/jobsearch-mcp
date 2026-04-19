@@ -1,7 +1,7 @@
 """Shared fixtures for jobsearch-mcp tests."""
+
 import pytest
 import respx
-import httpx
 
 
 @pytest.fixture
@@ -49,11 +49,20 @@ def sample_profile():
                 "title": "Senior Software Engineer",
                 "company": "Acme Corp",
                 "duration": "Jan 2020 - Present",
-                "highlights": ["Built FastAPI microservices", "Led team of 5 engineers"],
+                "highlights": [
+                    "Built FastAPI microservices",
+                    "Led team of 5 engineers",
+                ],
             }
         ],
         "skills": ["Python", "FastAPI", "PostgreSQL", "Docker", "Redis"],
-        "education": [{"degree": "BS Computer Science", "institution": "State University", "year": "2017"}],
+        "education": [
+            {
+                "degree": "BS Computer Science",
+                "institution": "State University",
+                "year": "2017",
+            }
+        ],
         "certifications": [],
         "summary": "Senior Python developer with 7 years experience building scalable APIs.",
         "work_authorization": "US Citizen",

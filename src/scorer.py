@@ -1,4 +1,5 @@
 """Resume/job fit scoring, ATS analysis, and cover letter scaffolding via Claude."""
+
 import json
 import logging
 import os

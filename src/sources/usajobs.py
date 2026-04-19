@@ -1,4 +1,5 @@
 """USAJobs source — US federal government jobs (free, requires API key + email auth)."""
+
 import logging
 import os
 
@@ -39,17 +40,19 @@ async def search_usajobs(query: str, location: str = "") -> list[dict]:
         pos = desc.get("PositionLocation", [{}])[0]
         salary = desc.get("PositionRemuneration", [{}])[0]
         apply_uri = desc.get("ApplyURI", [""])[0]
-        jobs.append({
-            "title": desc.get("PositionTitle", ""),
-            "company": desc.get("OrganizationName", ""),
-            "location": pos.get("LocationName", ""),
-            "url": apply_uri or desc.get("PositionURI", ""),
-            "description": desc.get("QualificationSummary", "")[:500],
-            "source": "usajobs",
-            "salary_min": _parse_salary(salary.get("MinimumRange")),
-            "salary_max": _parse_salary(salary.get("MaximumRange")),
-            "date_posted": desc.get("PublicationStartDate", ""),
-        })
+        jobs.append(
+            {
+                "title": desc.get("PositionTitle", ""),
+                "company": desc.get("OrganizationName", ""),
+                "location": pos.get("LocationName", ""),
+                "url": apply_uri or desc.get("PositionURI", ""),
+                "description": desc.get("QualificationSummary", "")[:500],
+                "source": "usajobs",
+                "salary_min": _parse_salary(salary.get("MinimumRange")),
+                "salary_max": _parse_salary(salary.get("MaximumRange")),
+                "date_posted": desc.get("PublicationStartDate", ""),
+            }
+        )
     return jobs
 
 

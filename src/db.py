@@ -1,4 +1,5 @@
 """Postgres persistence — job tracking and user profiles."""
+
 import os
 
 import asyncpg
@@ -58,7 +59,10 @@ async def mark_job_seen(user_id: str, url: str, title: str = "", company: str = 
             VALUES ($1, $2, $3, $4, 'seen')
             ON CONFLICT (user_id, url) DO NOTHING
             """,
-            user_id, url, title, company,
+            user_id,
+            url,
+            title,
+            company,
         )
 
 
@@ -71,7 +75,10 @@ async def mark_job_applied(user_id: str, url: str, title: str = "", company: str
             ON CONFLICT (user_id, url) DO UPDATE
                 SET status = 'applied', updated_at = now()
             """,
-            user_id, url, title, company,
+            user_id,
+            url,
+            title,
+            company,
         )
 
 
@@ -83,7 +90,9 @@ async def update_job_status(user_id: str, url: str, status: str) -> bool:
             UPDATE tracked_jobs SET status = $1, updated_at = now()
             WHERE user_id = $2 AND url = $3
             """,
-            status, user_id, url,
+            status,
+            user_id,
+            url,
         )
     return result != "UPDATE 0"
 
@@ -101,7 +110,9 @@ async def add_job_note(user_id: str, url: str, note: str) -> bool:
             updated_at = now()
             WHERE user_id = $2 AND url = $3
             """,
-            note, user_id, url,
+            note,
+            user_id,
+            url,
         )
     return result != "UPDATE 0"
 
@@ -115,14 +126,17 @@ async def get_tracked_jobs(user_id: str, status: str = "applied") -> list[dict]:
             WHERE user_id = $1 AND status = $2
             ORDER BY updated_at DESC
             """,
-            user_id, status,
+            user_id,
+            status,
         )
     return [dict(r) for r in rows]
 
 
 async def get_all_tracked_jobs(user_id: str) -> list[dict]:
     """Get all tracked jobs for a user regardless of status, ordered by pipeline stage."""
-    status_order = "ARRAY['offered','interviewing','applied','seen','rejected','closed']"
+    status_order = (
+        "ARRAY['offered','interviewing','applied','seen','rejected','closed']"
+    )
     async with _pool.acquire() as conn:
         rows = await conn.fetch(
             f"""
@@ -146,9 +160,11 @@ async def get_user_prefs(user_id: str) -> dict:
 # User profile CRUD
 # ---------------------------------------------------------------------------
 
+
 async def upsert_user_profile(user_id: str, profile: dict) -> None:
     """Insert or replace a user's structured resume profile."""
     import json
+
     async with _pool.acquire() as conn:
         await conn.execute(
             """
@@ -157,7 +173,8 @@ async def upsert_user_profile(user_id: str, profile: dict) -> None:
             ON CONFLICT (user_id) DO UPDATE
                 SET profile = $2::jsonb, updated_at = now()
             """,
-            user_id, json.dumps(profile),
+            user_id,
+            json.dumps(profile),
         )
 
 
@@ -170,6 +187,7 @@ async def get_user_profile(user_id: str) -> dict | None:
     if not row:
         return None
     import json
+
     return json.loads(row["profile"])
 
 
@@ -194,4 +212,7 @@ async def get_all_profiles_with_roles() -> list[dict]:
             """
         )
     import json
-    return [{"user_id": r["user_id"], "profile": json.loads(r["profile"])} for r in rows]
+
+    return [
+        {"user_id": r["user_id"], "profile": json.loads(r["profile"])} for r in rows
+    ]

@@ -1,4 +1,5 @@
 """Fit scoring, ATS analysis, and cover letter tools."""
+
 from fastmcp import Context
 
 from ..db import get_user_profile
@@ -23,6 +24,7 @@ async def _resolve_resume(resume: str | None, ctx: Context | None) -> str | None
         profile = await get_user_profile(user_id)
         if profile:
             import json
+
             return json.dumps(profile)
     return None
 
@@ -36,10 +38,17 @@ def register_tools(mcp):
         If resume is omitted, uses your stored profile (set it with save_profile)."""
         resolved = await _resolve_resume(resume or None, ctx)
         if not resolved:
-            return {"status": "error", "error": "No resume provided and no stored profile found. Use save_profile first."}
+            return {
+                "status": "error",
+                "error": "No resume provided and no stored profile found. Use save_profile first.",
+            }
         enriched = await enrich_job(url)
         if enriched.get("error") or not enriched.get("content"):
-            return {"status": "error", "url": url, "error": enriched.get("error", "no content")}
+            return {
+                "status": "error",
+                "url": url,
+                "error": enriched.get("error", "no content"),
+            }
         try:
             result = await _score_fit(jd=enriched["content"], resume=resolved)
             result["url"] = url
@@ -49,7 +58,9 @@ def register_tools(mcp):
             return {"status": "error", "url": url, "error": type(e).__name__}
 
     @mcp.tool()
-    async def cover_letter_brief(url: str, resume: str = "", ctx: Context = None) -> dict:
+    async def cover_letter_brief(
+        url: str, resume: str = "", ctx: Context = None
+    ) -> dict:
         """Generate a structured cover letter brief for a job posting.
         Fetches the full JD, then uses Claude to produce a brief covering: opening angle,
         key requirements to address, which experience to lead with, skills to emphasize,
@@ -57,10 +68,17 @@ def register_tools(mcp):
         If resume is omitted, uses your stored profile."""
         resolved = await _resolve_resume(resume or None, ctx)
         if not resolved:
-            return {"status": "error", "error": "No resume provided and no stored profile found. Use save_profile first."}
+            return {
+                "status": "error",
+                "error": "No resume provided and no stored profile found. Use save_profile first.",
+            }
         enriched = await enrich_job(url)
         if enriched.get("error") or not enriched.get("content"):
-            return {"status": "error", "url": url, "error": enriched.get("error", "no content")}
+            return {
+                "status": "error",
+                "url": url,
+                "error": enriched.get("error", "no content"),
+            }
         try:
             result = await _draft_cover_letter(jd=enriched["content"], resume=resolved)
             result["url"] = url

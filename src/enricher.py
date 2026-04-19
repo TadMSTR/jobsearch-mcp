@@ -1,4 +1,5 @@
 """Job content enrichment — Firecrawl v1 → Crawl4AI → rawFetch fallback with Valkey cache."""
+
 import asyncio
 import ipaddress
 import json
@@ -27,7 +28,7 @@ _PRIVATE_NETS = [
     ipaddress.ip_network("169.254.0.0/16"),
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),   # IPv6 link-local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
 ]
 
 
