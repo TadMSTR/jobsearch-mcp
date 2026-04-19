@@ -128,7 +128,10 @@ def register_tools(mcp):
         resolved_title = title or enriched.get("title", "")
         try:
             point_id = await vector_index_job(
-                url=url, title=resolved_title, company=company, content=enriched["content"]
+                url=url,
+                title=resolved_title,
+                company=company,
+                content=enriched["content"],
             )
         except ValueError as e:
             return {"status": "error", "url": url, "error": str(e)}
