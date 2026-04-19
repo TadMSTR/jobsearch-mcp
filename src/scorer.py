@@ -15,7 +15,11 @@ _client: anthropic.AsyncAnthropic | None = None
 
 def _check_env() -> None:
     key = os.getenv("ANTHROPIC_API_KEY", "")
-    assert key, "ANTHROPIC_API_KEY is required — set it in the environment"
+    if not key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY is not set — add it to your .env to enable "
+            "score_fit, build_profile, tailor_resume, and cover_letter_brief"
+        )
 
 
 def _get_client() -> anthropic.AsyncAnthropic:

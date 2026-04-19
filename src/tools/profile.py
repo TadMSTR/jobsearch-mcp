@@ -81,7 +81,7 @@ def register_tools(mcp):
                 "message": "Review the profile above, then call save_profile to store it.",
             }
         except Exception as e:
-            return {"status": "error", "error": type(e).__name__}
+            return {"status": "error", "error": str(e)}
 
     @mcp.tool()
     async def tailor_resume(url: str, ctx: Context = None) -> dict:
@@ -120,4 +120,4 @@ def register_tools(mcp):
             )
             return result
         except Exception as e:
-            return {"status": "error", "url": url, "error": type(e).__name__}
+            return {"status": "error", "url": url, "error": str(e)}

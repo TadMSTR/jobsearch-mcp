@@ -55,7 +55,7 @@ def register_tools(mcp):
             result["title"] = enriched.get("title", "")
             return result
         except Exception as e:
-            return {"status": "error", "url": url, "error": type(e).__name__}
+            return {"status": "error", "url": url, "error": str(e)}
 
     @mcp.tool()
     async def cover_letter_brief(
@@ -85,4 +85,4 @@ def register_tools(mcp):
             result["title"] = enriched.get("title", "")
             return result
         except Exception as e:
-            return {"status": "error", "url": url, "error": type(e).__name__}
+            return {"status": "error", "url": url, "error": str(e)}

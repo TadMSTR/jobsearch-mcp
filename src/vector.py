@@ -34,6 +34,11 @@ async def get_qdrant() -> AsyncQdrantClient:
 
 
 async def _embed(texts: list[str]) -> list[list[float]]:
+    if not OLLAMA_HOST:
+        raise ValueError(
+            "OLLAMA_HOST is not set — add it to your .env and run "
+            "'ollama pull bge-m3' to enable index_job and match_jobs"
+        )
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             f"{OLLAMA_HOST}/api/embed",
