@@ -12,6 +12,20 @@ Most job search MCP tools do one thing — scrape listings or generate cover let
 
 Built with [Claude Code](https://claude.ai/code) using the multi-agent workflow from [homelab-agent](https://github.com/TadMSTR/homelab-agent).
 
+## What you need
+
+jobsearch-mcp is modular — start with the basics and add services as you need them.
+
+| Capability | Required services |
+|---|---|
+| Search jobs + track applications | Adzuna key · `docker compose up` (JD extraction via raw HTTP fallback — quality varies without Firecrawl) |
+| Full job description extraction | Firecrawl Simple (self-hosted) |
+| AI fit scoring + profile building | Anthropic API key |
+| Semantic job matching | Ollama + bge-m3 |
+| Background email alerts | SMTP relay |
+
+**Minimum to get started:** an Adzuna API key and `docker compose up`. That gives you job search across 6 sources, full application tracking, and JD extraction via raw HTTP fallback. Everything else is additive. Tools that require an unconfigured service return a clear error message explaining what to set up.
+
 ---
 
 ## How It Works
@@ -149,16 +163,28 @@ Configure it via `job-watcher.env` (see [`job-watcher.env.example`](job-watcher.
 
 ## Prerequisites
 
+**Required for basic use:**
+
 | Service | What it does | How to get it |
 |---------|-------------|---------------|
 | **Adzuna** | Job search API + salary data | Free key at [developer.adzuna.com](https://developer.adzuna.com/) |
-| **Anthropic** | `score_fit`, `build_profile`, `tailor_resume` (uses Haiku) | [console.anthropic.com](https://console.anthropic.com/) |
-| **Ollama** | Embeddings for semantic search (bge-m3) | Run locally; pull the model: `ollama pull bge-m3` |
-| **Firecrawl Simple** | Primary JD extraction | Self-host via Docker — [trieve-ai/firecrawl-simple](https://github.com/trieve-ai/firecrawl-simple) |
-| **Crawl4AI** | Fallback JD extraction | Optional; self-hosted — [unclecode/crawl4ai](https://github.com/unclecode/crawl4ai) |
-| **SMTP relay** | Job watcher email alerts | Optional; Brevo free tier works. Only needed if using job-watcher. |
-| **USAJobs** | Government job listings | Optional API key + email at [developer.usajobs.gov](https://developer.usajobs.gov/). Works without a key at reduced rate limits. |
-| **Findwork / The Muse** | Optional tech/culture-focused sources | [findwork.dev](https://findwork.dev/) / no key needed for The Muse |
+
+**Required for specific features:**
+
+| Service | Enables | How to get it |
+|---------|---------|---------------|
+| **Anthropic** | `score_fit`, `build_profile`, `tailor_resume`, `cover_letter_brief` | [console.anthropic.com](https://console.anthropic.com/) |
+| **Ollama (bge-m3)** | `index_job`, `match_jobs` — semantic search | Run locally; `ollama pull bge-m3` |
+| **Firecrawl Simple** | Full JD extraction (primary tier) | Self-host — [trieve-ai/firecrawl-simple](https://github.com/trieve-ai/firecrawl-simple) |
+
+**Optional:**
+
+| Service | What it adds | How to get it |
+|---------|-------------|---------------|
+| **Crawl4AI** | Fallback JD extraction if Firecrawl is unavailable | Self-hosted — [unclecode/crawl4ai](https://github.com/unclecode/crawl4ai) |
+| **SMTP relay** | Job watcher email alerts | Brevo free tier works |
+| **USAJobs** | Government job listings | Optional key at [developer.usajobs.gov](https://developer.usajobs.gov/); works without at reduced rate limits |
+| **Findwork / The Muse** | Tech/culture-focused listings | [findwork.dev](https://findwork.dev/) / no key needed for The Muse |
 
 Postgres, Qdrant, and Valkey are included in the Docker stack — no external setup needed for those.
 

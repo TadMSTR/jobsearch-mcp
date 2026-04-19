@@ -126,9 +126,15 @@ def register_tools(mcp):
                 "error": enriched.get("error", "no content"),
             }
         resolved_title = title or enriched.get("title", "")
-        point_id = await vector_index_job(
-            url=url, title=resolved_title, company=company, content=enriched["content"]
-        )
+        try:
+            point_id = await vector_index_job(
+                url=url,
+                title=resolved_title,
+                company=company,
+                content=enriched["content"],
+            )
+        except ValueError as e:
+            return {"status": "error", "url": url, "error": str(e)}
         return {
             "status": "indexed",
             "url": url,
@@ -151,10 +157,13 @@ def register_tools(mcp):
             seen = await get_tracked_jobs(user_id, "seen")
             applied = await get_tracked_jobs(user_id, "applied")
             exclude_urls = [j["url"] for j in seen + applied]
-        results = await search_by_text(
-            resume_or_query, top_k=top_k, exclude_urls=exclude_urls
-        )
-        total_indexed = await get_index_count()
+        try:
+            results = await search_by_text(
+                resume_or_query, top_k=top_k, exclude_urls=exclude_urls
+            )
+            total_indexed = await get_index_count()
+        except ValueError as e:
+            return {"status": "error", "error": str(e)}
         return {"total_indexed": total_indexed, "count": len(results), "jobs": results}
 
     @mcp.tool()
