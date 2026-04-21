@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://jobsearch-qdrant:6333")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "bge-m3")
 COLLECTION = "jobs"
 VECTOR_DIM = 1024  # bge-m3 output dimension — matches voyage-3, no schema change needed
@@ -40,8 +41,12 @@ async def _embed(texts: list[str]) -> list[list[float]]:
             "'ollama pull bge-m3' to enable index_job and match_jobs"
         )
     async with httpx.AsyncClient(timeout=30) as client:
+        headers: dict[str, str] = {}
+        if OLLAMA_API_KEY:
+            headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
         resp = await client.post(
             f"{OLLAMA_HOST}/api/embed",
+            headers=headers,
             json={"model": EMBED_MODEL, "input": texts},
         )
         resp.raise_for_status()
