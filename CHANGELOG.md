@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `OLLAMA_API_KEY` env var support — when set, adds `Authorization: Bearer <key>` to Ollama embed requests. No behavior change when unset.
+
 ### Fixed
 - `score_fit`, `build_profile`, `tailor_resume`, `cover_letter_brief` now return a readable error message when `ANTHROPIC_API_KEY` is not set, instead of a bare exception class name
 - `index_job`, `match_jobs` now return a readable error message when `OLLAMA_HOST` is not set
