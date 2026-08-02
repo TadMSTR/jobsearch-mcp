@@ -7,11 +7,11 @@ import logging
 import os
 import smtplib
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from .db import init_db, get_all_profiles_with_roles, mark_job_seen, get_tracked_jobs
+from .db import get_all_profiles_with_roles, get_tracked_jobs, init_db, mark_job_seen
 from .sources.adzuna import search_adzuna
 from .sources.rss import search_remotive, search_weworkremotely
 from .sources.usajobs import search_usajobs
@@ -33,9 +33,7 @@ SMTP_FROM = os.getenv("SMTP_FROM", "")
 
 def _check_smtp_env() -> None:
     missing = [
-        v
-        for v in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM")
-        if not os.getenv(v)
+        v for v in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM") if not os.getenv(v)
     ]
     if missing:
         logger.error(
@@ -55,7 +53,7 @@ def _send_smtp(msg: MIMEMultipart, to_address: str) -> None:
 async def _send_email(to_address: str, jobs: list[dict]) -> None:
     if not to_address or not jobs:
         return
-    subject = f"{len(jobs)} new job match(es) found — {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+    subject = f"{len(jobs)} new job match(es) found — {datetime.now(UTC).strftime('%Y-%m-%d')}"
     lines = []
     for j in jobs[:10]:
         lines.append(f"{j.get('title', 'Unknown')} at {j.get('company', 'Unknown')}")
@@ -147,13 +145,9 @@ async def _process_user(user_id: str, profile: dict) -> None:
     # Mark new jobs as seen before notifying
     for job in new_jobs[:20]:
         try:
-            await mark_job_seen(
-                user_id, job["url"], job.get("title", ""), job.get("company", "")
-            )
+            await mark_job_seen(user_id, job["url"], job.get("title", ""), job.get("company", ""))
         except Exception as e:
-            logger.warning(
-                "mark_job_seen failed for %s: %s", job["url"], type(e).__name__
-            )
+            logger.warning("mark_job_seen failed for %s: %s", job["url"], type(e).__name__)
 
     await _send_email(notification_email, new_jobs[:10])
 
@@ -176,9 +170,7 @@ async def run_once() -> None:
         try:
             await _process_user(entry["user_id"], entry["profile"])
         except Exception as e:
-            logger.error(
-                "error processing user %s: %s", entry["user_id"], type(e).__name__
-            )
+            logger.error("error processing user %s: %s", entry["user_id"], type(e).__name__)
 
     logger.info("watcher cycle complete")
 

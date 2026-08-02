@@ -13,7 +13,9 @@ def mock_httpx():
 
 @pytest.fixture
 def sample_job_html():
-    return "<html><body><h1>Software Engineer</h1><p>Apply now for this great role.</p></body></html>"
+    return (
+        "<html><body><h1>Software Engineer</h1><p>Apply now for this great role.</p></body></html>"
+    )
 
 
 @pytest.fixture

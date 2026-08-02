@@ -1,10 +1,13 @@
 """Fit scoring, ATS analysis, and cover letter tools."""
 
+import json
+
 from fastmcp import Context
 
 from ..db import get_user_profile
 from ..enricher import enrich_job
-from ..scorer import score_fit as _score_fit, draft_cover_letter as _draft_cover_letter
+from ..scorer import draft_cover_letter as _draft_cover_letter
+from ..scorer import score_fit as _score_fit
 
 
 def _get_user_id(ctx: Context) -> str | None:
@@ -15,6 +18,24 @@ def _get_user_id(ctx: Context) -> str | None:
         return None
 
 
+# Fields the fit/ATS rubric and the cover-letter brief actually reason over.
+# Everything else in a stored profile (notification_email, work_authorization,
+# salary_min/max, education, contact details) is dead weight in the prompt — it
+# costs input tokens on every call and the rubric never cites it.
+_SCORING_FIELDS = (
+    "summary",
+    "skills",
+    "experience",
+    "certifications",
+    "target_roles",
+)
+
+
+def _trim_profile(profile: dict) -> dict:
+    """Keep only the profile fields the scoring prompts use."""
+    return {k: profile[k] for k in _SCORING_FIELDS if profile.get(k)}
+
+
 async def _resolve_resume(resume: str | None, ctx: Context | None) -> str | None:
     """Return resume string: explicit arg takes priority, then stored profile summary."""
     if resume:
@@ -23,9 +44,7 @@ async def _resolve_resume(resume: str | None, ctx: Context | None) -> str | None
         user_id = _get_user_id(ctx)
         profile = await get_user_profile(user_id)
         if profile:
-            import json
-
-            return json.dumps(profile)
+            return json.dumps(_trim_profile(profile))
     return None
 
 
@@ -50,7 +69,11 @@ def register_tools(mcp):
                 "error": enriched.get("error", "no content"),
             }
         try:
-            result = await _score_fit(jd=enriched["content"], resume=resolved)
+            result = await _score_fit(
+                jd=enriched["content"],
+                resume=resolved,
+                user_id=_get_user_id(ctx) if ctx else None,
+            )
             result["url"] = url
             result["title"] = enriched.get("title", "")
             return result
@@ -58,9 +81,7 @@ def register_tools(mcp):
             return {"status": "error", "url": url, "error": str(e)}
 
     @mcp.tool()
-    async def cover_letter_brief(
-        url: str, resume: str = "", ctx: Context = None
-    ) -> dict:
+    async def cover_letter_brief(url: str, resume: str = "", ctx: Context = None) -> dict:
         """Generate a structured cover letter brief for a job posting.
         Fetches the full JD, then uses Claude to produce a brief covering: opening angle,
         key requirements to address, which experience to lead with, skills to emphasize,
@@ -80,7 +101,11 @@ def register_tools(mcp):
                 "error": enriched.get("error", "no content"),
             }
         try:
-            result = await _draft_cover_letter(jd=enriched["content"], resume=resolved)
+            result = await _draft_cover_letter(
+                jd=enriched["content"],
+                resume=resolved,
+                user_id=_get_user_id(ctx) if ctx else None,
+            )
             result["url"] = url
             result["title"] = enriched.get("title", "")
             return result

@@ -1,10 +1,11 @@
 """Tests for scorer.py — output structure validation."""
 
 import json
+import os
+
+import httpx
 import pytest
 import respx
-import httpx
-import os
 
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
@@ -53,7 +54,7 @@ class TestScoreFit:
             mock.post("https://api.anthropic.com/v1/messages").mock(
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
-            from src.scorer import score_fit
+            from jobsearch_mcp.scorer import score_fit
 
             result = await score_fit(sample_jd, sample_resume)
 
@@ -71,7 +72,7 @@ class TestScoreFit:
             mock.post("https://api.anthropic.com/v1/messages").mock(
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
-            from src.scorer import score_fit
+            from jobsearch_mcp.scorer import score_fit
 
             result = await score_fit(sample_jd, sample_resume)
 
@@ -83,7 +84,7 @@ class TestScoreFit:
             mock.post("https://api.anthropic.com/v1/messages").mock(
                 return_value=_mock_claude_response(FIT_RESPONSE)
             )
-            from src.scorer import score_fit
+            from jobsearch_mcp.scorer import score_fit
 
             result = await score_fit(sample_jd, sample_resume)
 
@@ -98,7 +99,7 @@ class TestDraftCoverLetter:
             mock.post("https://api.anthropic.com/v1/messages").mock(
                 return_value=_mock_claude_response(COVER_RESPONSE)
             )
-            from src.scorer import draft_cover_letter
+            from jobsearch_mcp.scorer import draft_cover_letter
 
             result = await draft_cover_letter(sample_jd, sample_resume)
 

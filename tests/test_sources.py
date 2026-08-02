@@ -1,9 +1,10 @@
 """Tests for source normalizer output shape."""
 
+from unittest.mock import MagicMock, patch
+
+import httpx
 import pytest
 import respx
-import httpx
-from unittest.mock import patch, MagicMock
 
 EXPECTED_FIELDS = {
     "title",
@@ -50,7 +51,7 @@ class TestAdzunaNormalizer:
             mock.get(url__regex="api.adzuna.com").mock(
                 return_value=httpx.Response(200, json=mock_response)
             )
-            from src.sources.adzuna import search_adzuna
+            from jobsearch_mcp.sources.adzuna import search_adzuna
 
             jobs = await search_adzuna("python developer")
 
@@ -78,7 +79,7 @@ class TestRemotiveNormalizer:
             mock.get("https://remotive.com/api/remote-jobs").mock(
                 return_value=httpx.Response(200, json=mock_response)
             )
-            from src.sources.rss import search_remotive
+            from jobsearch_mcp.sources.rss import search_remotive
 
             jobs = await search_remotive("python")
 
@@ -100,8 +101,8 @@ class TestWeworkremotelyNormalizer:
         mock_feed = MagicMock()
         mock_feed.entries = [mock_entry]
 
-        with patch("src.sources.rss.feedparser.parse", return_value=mock_feed):
-            from src.sources.rss import search_weworkremotely
+        with patch("jobsearch_mcp.sources.rss.feedparser.parse", return_value=mock_feed):
+            from jobsearch_mcp.sources.rss import search_weworkremotely
 
             jobs = await search_weworkremotely("frontend")
 
@@ -128,7 +129,7 @@ class TestJobicyNormalizer:
             mock.get("https://jobicy.com/api/v2/remote-jobs").mock(
                 return_value=httpx.Response(200, json=mock_response)
             )
-            from src.sources.rss import search_jobicy
+            from jobsearch_mcp.sources.rss import search_jobicy
 
             jobs = await search_jobicy("devops")
 

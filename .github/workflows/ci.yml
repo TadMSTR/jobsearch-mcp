@@ -25,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: pip install -e ".[dev]"
 
       - name: Lint (ruff)
         run: ruff check src/ tests/
@@ -48,11 +48,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install pip-audit
-        run: pip install pip-audit
+      - name: Install project and pip-audit
+        run: |
+          pip install .
+          pip install pip-audit
 
       - name: Audit dependencies
+        # Audits the installed environment (there is no requirements.txt since v2.2.0).
         # CVE-2025-46656 (markdownify) is a transitive dep of python-jobspy which
         # hard-pins markdownify<0.14.0. Cannot upgrade until python-jobspy relaxes
         # its constraint. Ignored until upstream fix is available.
-        run: pip-audit -r requirements.txt --ignore-vuln CVE-2025-46656
+        run: pip-audit --ignore-vuln CVE-2025-46656

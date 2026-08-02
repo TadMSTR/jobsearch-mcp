@@ -6,6 +6,8 @@ import os
 
 import anthropic
 
+from .usage import build_cache_key, get_cached, log_usage, set_cached
+
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-haiku-4-5-20251001"
@@ -81,9 +83,9 @@ Return a JSON object with exactly these fields:
 }}"""
 
 TAILOR_SYSTEM = """You are a career coach who tailors resumes to specific job descriptions.
-Given a structured resume profile and a job description, return a tailored version of the profile
-optimized for that specific role. Do NOT invent experience or skills — only reorder, reframe,
-and emphasize what is already present.
+Given a structured resume profile and a job description, return ONLY the parts of the profile
+you changed — not the whole profile. Do NOT invent experience or skills — only reorder, reframe,
+and emphasize what is already present. Do NOT echo back anything you left unchanged.
 Respond ONLY with a JSON object, no preamble or markdown fences."""
 
 TAILOR_PROMPT = """Job Description:
@@ -94,13 +96,20 @@ Resume Profile (JSON):
 
 Return a JSON object with exactly these fields:
 {{
-  "tailored_profile": {{
-    "summary": "<rewritten summary mirroring JD language where accurate>",
-    "experience": [<reordered/rewritten experience entries — same structure as input, highlights rewritten>],
-    "skills": [<reordered skills list — most relevant to JD first>]
-  }},
+  "tailored_summary": "<rewritten summary mirroring JD language where accurate, or empty string if you left it unchanged>",
+  "skills_reordered": [<full skills list reordered most-relevant-first — include ONLY if you changed the order, otherwise an empty list>],
+  "experience_changes": [
+    {{
+      "company": "<company name, exactly as it appears in the input>",
+      "title": "<job title, exactly as it appears in the input>",
+      "revised_highlights": ["<rewritten highlight>", ...]
+    }}
+  ],
   "changes_summary": "<2-4 sentence explanation of what changed and why — which JD priorities drove the rewrites>"
-}}"""
+}}
+
+Include an entry in "experience_changes" ONLY for roles whose highlights you actually rewrote.
+Omit unchanged roles entirely. Never echo back education, certifications, or contact details."""
 
 BUILD_SYSTEM = """You are a career assistant that parses unstructured resume text into a structured profile.
 Extract all available information and return it as a JSON object.
@@ -142,7 +151,13 @@ Return a JSON object with these fields (use empty string/list/null for missing d
 }}"""
 
 
-async def _claude(system: str, prompt: str, max_tokens: int = 1024) -> dict:
+async def _claude(
+    system: str,
+    prompt: str,
+    max_tokens: int = 1024,
+    tool: str = "unknown",
+    user_id: str | None = None,
+) -> dict:
     client = _get_client()
     message = await client.messages.create(
         model=MODEL,
@@ -150,32 +165,73 @@ async def _claude(system: str, prompt: str, max_tokens: int = 1024) -> dict:
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
+    log_usage(tool, usage=message.usage, user_id=user_id)
+
+    # A truncated response is invalid JSON. Surface that as its own error rather
+    # than letting json.loads raise something that reads like a model fault.
+    if message.stop_reason == "max_tokens":
+        raise ValueError(
+            f"{tool}: response hit the {max_tokens}-token cap and was truncated. "
+            "Raise max_tokens or reduce the input."
+        )
+
     raw = message.content[0].text.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1].lstrip("json").strip()
     return json.loads(raw)
 
 
-async def score_fit(jd: str, resume: str) -> dict:
+async def _claude_cached(
+    kind: str,
+    system: str,
+    prompt_template: str,
+    jd: str,
+    resume: str,
+    user_id: str | None = None,
+) -> dict:
+    """Run a JD+resume prompt, memoising the result in Valkey.
+
+    Keyed on the truncated inputs actually sent, so the key always matches the
+    prompt. A hit costs zero tokens.
+    """
+    jd_t, resume_t = jd[:6000], resume[:3000]
+    key = build_cache_key(kind, jd_t, resume_t)
+
+    hit = await get_cached(key)
+    if hit is not None:
+        log_usage(kind, cached=True, user_id=user_id)
+        return hit
+
+    prompt = prompt_template.format(jd=jd_t, resume=resume_t)
+    result = await _claude(system, prompt, tool=kind, user_id=user_id)
+    await set_cached(key, result)
+    return result
+
+
+async def score_fit(jd: str, resume: str, user_id: str | None = None) -> dict:
     """Score resume fit + ATS compatibility against a job description."""
-    prompt = FIT_PROMPT.format(jd=jd[:6000], resume=resume[:3000])
-    return await _claude(FIT_SYSTEM, prompt)
+    return await _claude_cached("score_fit", FIT_SYSTEM, FIT_PROMPT, jd, resume, user_id)
 
 
-async def draft_cover_letter(jd: str, resume: str) -> dict:
+async def draft_cover_letter(jd: str, resume: str, user_id: str | None = None) -> dict:
     """Produce a structured cover letter brief from a JD and resume."""
-    prompt = COVER_PROMPT.format(jd=jd[:6000], resume=resume[:3000])
-    return await _claude(COVER_SYSTEM, prompt)
+    return await _claude_cached(
+        "cover_letter_brief", COVER_SYSTEM, COVER_PROMPT, jd, resume, user_id
+    )
 
 
-async def tailor_resume_to_jd(jd: str, profile: dict) -> dict:
-    """Return a tailored profile + changes summary for a specific JD."""
+async def tailor_resume_to_jd(jd: str, profile: dict, user_id: str | None = None) -> dict:
+    """Return only the changed parts of a profile + a changes summary for a JD."""
     profile_json = json.dumps(profile, indent=2)
     prompt = TAILOR_PROMPT.format(jd=jd[:6000], profile=profile_json[:4000])
-    return await _claude(TAILOR_SYSTEM, prompt, max_tokens=2048)
+    return await _claude(
+        TAILOR_SYSTEM, prompt, max_tokens=1536, tool="tailor_resume", user_id=user_id
+    )
 
 
-async def build_profile_from_text(raw_text: str) -> dict:
+async def build_profile_from_text(raw_text: str, user_id: str | None = None) -> dict:
     """Parse unstructured resume/bio text into a structured ResumeProfile dict."""
     prompt = BUILD_PROMPT.format(raw_text=raw_text[:8000])
-    return await _claude(BUILD_SYSTEM, prompt, max_tokens=2048)
+    return await _claude(
+        BUILD_SYSTEM, prompt, max_tokens=2048, tool="build_profile", user_id=user_id
+    )
