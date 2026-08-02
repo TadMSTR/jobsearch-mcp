@@ -1,10 +1,10 @@
 """Tests for enricher.py — SSRF validation and multi-tier fallback logic."""
 
+import httpx
 import pytest
 import respx
-import httpx
 
-from src.enricher import _validate_url, _fetch_firecrawl, _fetch_raw, enrich_job
+from jobsearch_mcp.enricher import _fetch_firecrawl, _fetch_raw, _validate_url, enrich_job
 
 
 class TestValidateUrl:
@@ -63,9 +63,7 @@ class TestFetchFirecrawl:
 
     async def test_returns_empty_on_failure(self):
         with respx.mock() as mock:
-            mock.post("http://firecrawl-api:3002/v1/scrape").mock(
-                return_value=httpx.Response(500)
-            )
+            mock.post("http://firecrawl-api:3002/v1/scrape").mock(return_value=httpx.Response(500))
             result = await _fetch_firecrawl("https://example.com/job")
         assert result["content"] == ""
         assert "error" in result
@@ -94,10 +92,7 @@ class TestEnrichJobSsrf:
     async def test_blocks_private_ip(self):
         result = await enrich_job("https://192.168.1.1/admin")
         assert result["content"] == ""
-        assert (
-            "private" in result["error"].lower()
-            or "private" in result.get("error", "").lower()
-        )
+        assert "private" in result["error"].lower() or "private" in result.get("error", "").lower()
 
     async def test_blocks_loopback(self):
         result = await enrich_job("https://127.0.0.1/internal")

@@ -6,16 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-01
+
+Repo standardization, forge deployment fixes, and Anthropic API cost reduction.
+
 ### Added
 - `OLLAMA_API_KEY` env var support — when set, adds `Authorization: Bearer <key>` to Ollama embed requests. No behavior change when unset.
+- `pyproject.toml` (hatchling). The project is now an installable package: `pip install -e ".[dev]"`, importable as `jobsearch_mcp`, with a `jobsearch-mcp` console script. Replaces `requirements.txt` / `requirements-dev.txt` / `pytest.ini`.
+- `usage.py` — per-call Anthropic token-usage logging. Every Claude call emits a structured `event=claude_usage` line with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, the tool name and the user ID. `message.usage` was previously discarded, so there was no cost instrumentation at all.
+- Valkey result cache for `score_fit` and `cover_letter_brief` — 24h TTL, keyed on a hash of the truncated JD + resume actually sent. A repeat call on a job already scored costs zero tokens and logs `cached=True` with no token counts. Cache keys carry a prompt-version prefix so a future prompt change cannot serve stale-shaped results.
+- `tests/test_usage.py` — 14 tests covering cache keying, hit/miss behaviour, backend-failure tolerance, truncation detection, and the usage log format.
+
+### Changed
+- **Package layout: `src/` → `src/jobsearch_mcp/`.** The old flat layout only ran as `python -m src.server` from the repo root. Dockerfile now installs the package and runs the console script; `job-watcher` runs `python -m jobsearch_mcp.job_watcher`.
+- **`tailor_resume` returns only what changed** — `tailored_summary`, `skills_reordered`, `experience_changes` (per-role revised highlights) and `changes_summary`, instead of regenerating the whole profile. Unchanged roles, education, certifications and contact details are no longer echoed back. `max_tokens` reduced 2048 → 1536. **This is a tool-contract change** for anything consuming `tailored_profile`.
+- Stored profiles are trimmed before being sent to the scoring prompts — only `summary`, `skills`, `experience`, `certifications` and `target_roles` are included. `notification_email`, `work_authorization`, `salary_min`/`salary_max`, `education` and contact details were being sent on every call and never used by the rubric. Measured: 1,121 → 1,013 input tokens (−9.6%) on a representative profile.
+- `ruff` pinned to `0.16.0` with an explicit rule set (`E`, `F`, `W`, `I`, `UP`, `B`, `SIM`, `RUF`). CI was previously on `ruff>=0.11.0`; ruff 0.16.1's widened default select flagged 42 errors and would have failed the next push. `E501` is waived for `scorer.py` only, whose long lines are prompt templates with measured token counts.
+- `fastmcp` gained an upper bound (`>=3.0,<4`). It previously pinned only `>=2.0.0` and resolved to 3.4.5 by luck. No code migration was needed — 3.4.5 works as-is.
+- Compose: `jobsearch-mcp` and `job-watcher` now join the external `forge-net` alongside the private `jobsearch-net`, so Firecrawl, Crawl4AI and Ollama resolve by container name. `FIRECRAWL_URL` defaulted to `localhost:3002` (which resolves to the container itself) and `CRAWL4AI_URL` to `host.docker.internal` (with no `extra_hosts` declared) — both were wrong inside a container.
+- Compose: MCP port now binds `127.0.0.1:8383` instead of `0.0.0.0`. The server has no built-in authentication.
+- Compose: Qdrant image pinned to `v1.18.3` (was the floating `qdrant/qdrant`).
+- CI installs via `pip install -e ".[dev]"`; the dependency audit runs against the installed environment rather than a `requirements.txt` that no longer exists. The `CVE-2025-46656` ignore is retained — `markdownify` is still capped by `python-jobspy`.
+- README Prerequisites section restructured into required / feature-specific / optional tiers
+- Added "What you need" capability matrix to README
 
 ### Fixed
 - `score_fit`, `build_profile`, `tailor_resume`, `cover_letter_brief` now return a readable error message when `ANTHROPIC_API_KEY` is not set, instead of a bare exception class name
 - `index_job`, `match_jobs` now return a readable error message when `OLLAMA_HOST` is not set
+- A Claude response truncated by the `max_tokens` cap now raises a clear error naming the tool and the cap, instead of surfacing as an opaque JSON decode failure.
+- `search_jobs` no longer uses a mutable list as a default argument (`B006`). Behaviour is unchanged — the defaults are documented in the tool description and applied when the argument is omitted.
 
-### Changed
-- README Prerequisites section restructured into required / feature-specific / optional tiers
-- Added "What you need" capability matrix to README
+### Notes
+- **Anthropic prompt caching is deliberately not implemented.** Haiku 4.5's minimum cacheable prefix is 4,096 tokens; the largest prompt this server sends measures 2,375 at its truncation cap, and the cacheable-prefix candidate is 1,162. `cache_control` would silently no-op with `cache_creation_input_tokens: 0` rather than error. Verified against a live call: cache fields are 0.
+- **The model stays `claude-haiku-4-5-20251001`.** Moving to a model with a 1,024-token cache minimum would make caching viable but costs roughly 1.7× more per workflow at current pricing. Because Haiku's input:output price ratio is 1:5, output tokens dominate the bill — which is why the result cache and the `tailor_resume` output reduction rank above input trimming.
 
 ## [2.1.0] - 2026-04-08
 

@@ -11,9 +11,9 @@ from fastmcp import FastMCP
 
 from .db import init_db
 from .tools.jobs import register_tools as register_job_tools
-from .tools.tracking import register_tools as register_tracking_tools
-from .tools.scoring import register_tools as register_scoring_tools
 from .tools.profile import register_tools as register_profile_tools
+from .tools.scoring import register_tools as register_scoring_tools
+from .tools.tracking import register_tools as register_tracking_tools
 
 
 @asynccontextmanager
@@ -30,6 +30,11 @@ register_scoring_tools(mcp)
 register_profile_tools(mcp)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Console-script entry point (`jobsearch-mcp`)."""
     port = int(os.getenv("MCP_PORT", "8383"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+
+
+if __name__ == "__main__":
+    main()

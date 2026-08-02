@@ -2,19 +2,20 @@
 
 import asyncio
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastmcp import Context
 
 from ..db import get_tracked_jobs
 from ..enricher import enrich_job
-from ..sources.adzuna import search_adzuna, get_salary_insights
-from ..sources.rss import search_remotive, search_weworkremotely, search_jobicy
-from ..sources.jobspy import search_jobspy, JOBSPY_SITES
-from ..sources.usajobs import search_usajobs
+from ..sources.adzuna import get_salary_insights, search_adzuna
 from ..sources.findwork import search_findwork
+from ..sources.jobspy import JOBSPY_SITES, search_jobspy
+from ..sources.rss import search_jobicy, search_remotive, search_weworkremotely
 from ..sources.themuse import search_themuse
-from ..vector import index_job as vector_index_job, search_by_text, get_index_count
+from ..sources.usajobs import search_usajobs
+from ..vector import get_index_count, search_by_text
+from ..vector import index_job as vector_index_job
 
 
 def _get_user_id(ctx: Context) -> str:
@@ -29,7 +30,7 @@ def _recency_score(date_posted: str) -> float:
         return 0.0
     try:
         dt = datetime.fromisoformat(date_posted.replace("Z", "+00:00"))
-        age_days = (datetime.now(timezone.utc) - dt).days
+        age_days = (datetime.now(UTC) - dt).days
         return math.exp(-age_days / 30)  # 30-day half-life
     except Exception:
         return 0.0
@@ -41,19 +42,15 @@ def register_tools(mcp):
         query: str,
         location: str = "",
         remote_only: bool = False,
-        sources: list[str] = [
-            "adzuna",
-            "remotive",
-            "weworkremotely",
-            "jobicy",
-            "usajobs",
-        ],
+        sources: list[str] | None = None,
         ctx: Context = None,
     ) -> dict:
         """Search for jobs across multiple sources. Returns deduplicated results sorted by recency.
         Default sources: adzuna, remotive, weworkremotely, jobicy, usajobs.
         Optional: findwork, themuse (tech/culture focus).
         Slow opt-in scrapers: indeed, glassdoor, ziprecruiter."""
+        if sources is None:
+            sources = ["adzuna", "remotive", "weworkremotely", "jobicy", "usajobs"]
         results = []
         source_status: dict[str, str] = {}
 
@@ -102,9 +99,7 @@ def register_tools(mcp):
         # Secondary sort by recency — only reorders when date_posted is present
         has_dates = any(j.get("date_posted") for j in deduped)
         if has_dates:
-            deduped.sort(
-                key=lambda j: _recency_score(j.get("date_posted", "")), reverse=True
-            )
+            deduped.sort(key=lambda j: _recency_score(j.get("date_posted", "")), reverse=True)
 
         return {"count": len(deduped), "source_status": source_status, "jobs": deduped}
 
@@ -158,9 +153,7 @@ def register_tools(mcp):
             applied = await get_tracked_jobs(user_id, "applied")
             exclude_urls = [j["url"] for j in seen + applied]
         try:
-            results = await search_by_text(
-                resume_or_query, top_k=top_k, exclude_urls=exclude_urls
-            )
+            results = await search_by_text(resume_or_query, top_k=top_k, exclude_urls=exclude_urls)
             total_indexed = await get_index_count()
         except ValueError as e:
             return {"status": "error", "error": str(e)}
@@ -251,9 +244,7 @@ def register_tools(mcp):
                 "max": round(max(salaries)),
                 "avg": round(sum(salaries) / n),
                 "median": round(
-                    salaries[n // 2]
-                    if n % 2
-                    else (salaries[n // 2 - 1] + salaries[n // 2]) / 2
+                    salaries[n // 2] if n % 2 else (salaries[n // 2 - 1] + salaries[n // 2]) / 2
                 ),
                 "note": "computed from listings with non-predicted salary data only",
             }

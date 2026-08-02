@@ -114,7 +114,7 @@ Build and store your profile once — `score_fit`, `cover_letter_brief`, and `ta
 | `save_profile` | Store the structured profile. All scoring and tailoring tools use it automatically from this point. |
 | `get_profile` | Retrieve your stored profile. |
 | `delete_profile` | Remove your stored profile and associated data. |
-| `tailor_resume` | Rewrite your stored profile's highlights and summary to match a specific JD. Returns the tailored version for review — does not overwrite your stored profile. |
+| `tailor_resume` | Rewrite your stored profile's highlights and summary to match a specific JD. Returns **only what changed** — `tailored_summary`, `skills_reordered`, `experience_changes` (per-role revised highlights) and `changes_summary`. Unchanged fields are omitted; does not overwrite your stored profile. |
 
 ### Search & Discovery
 
@@ -208,15 +208,22 @@ Postgres, Qdrant, and Valkey are included in the Docker stack — no external se
 
 ### Docker Stack
 
-Five containers, all on an isolated `jobsearch-net` bridge network:
+Five containers. The datastores sit on a private `jobsearch-net` bridge network; the two
+application containers additionally join the external `forge-net` so they can reach
+Firecrawl, Crawl4AI and Ollama by container name.
 
-| Container | Image | Port |
-|-----------|-------|------|
-| jobsearch-mcp | Local build | 8383 (MCP endpoint) |
-| job-watcher | Local build | Internal only |
-| jobsearch-postgres | postgres:16 | Internal only |
-| jobsearch-qdrant | qdrant/qdrant | Internal only |
-| jobsearch-valkey | valkey/valkey:7-alpine | Internal only |
+| Container | Image | Networks | Port |
+|-----------|-------|----------|------|
+| jobsearch-mcp | Local build | forge-net, jobsearch-net | `127.0.0.1:8383` (MCP endpoint) |
+| job-watcher | Local build | forge-net, jobsearch-net | Internal only |
+| jobsearch-postgres | postgres:16 | jobsearch-net | Internal only |
+| jobsearch-qdrant | qdrant/qdrant:v1.18.3 | jobsearch-net | Internal only |
+| jobsearch-valkey | valkey/valkey:7-alpine | jobsearch-net | Internal only |
+
+`forge-net` is expected to already exist (`docker network create forge-net` if not).
+The MCP port is published on loopback only — the server has no built-in authentication,
+so it must not be bound to a routable interface. Put an authenticating proxy in front of
+it if you need remote access.
 
 ### Setup
 
@@ -315,16 +322,15 @@ jobsearch-mcp/
 ├── .env.example
 ├── job-watcher.env.example
 ├── .gitignore
-├── requirements.txt
-├── requirements-dev.txt
-├── pytest.ini
+├── pyproject.toml         # Packaging (hatchling), deps, ruff + pytest config
 ├── LICENSE
-├── src/
+├── src/jobsearch_mcp/
 │   ├── server.py          # Thin FastMCP registry — registers tool modules
 │   ├── db.py              # Postgres schema, pipeline tracking, profiles (asyncpg)
 │   ├── enricher.py        # Multi-tier JD fetcher (Firecrawl → Crawl4AI → rawFetch) + Valkey cache
 │   ├── vector.py          # Qdrant + Ollama bge-m3 embedding and search
 │   ├── scorer.py          # Claude-powered fit scoring, profile parsing, resume tailoring
+│   ├── usage.py           # Token-usage logging + Valkey result cache for Claude calls
 │   ├── job_watcher.py     # Background poller — email alerts for new matches
 │   ├── tools/
 │   │   ├── jobs.py        # Search, discovery, enrichment tools
@@ -343,8 +349,12 @@ jobsearch-mcp/
     ├── test_db.py
     ├── test_enricher.py
     ├── test_scorer.py
-    └── test_sources.py
+    ├── test_sources.py
+    └── test_usage.py
 ```
+
+Install for development with `pip install -e ".[dev]"`. The package is importable as
+`jobsearch_mcp` and exposes a `jobsearch-mcp` console script.
 
 ---
 
@@ -354,6 +364,9 @@ jobsearch-mcp/
 - **Indeed, Glassdoor, ZipRecruiter** are optional scraping-based sources via python-jobspy. Not in the default `search_jobs` call — add them explicitly to `sources`. These sites fight scrapers aggressively; the server uses a global rate limiter (one jobspy call at a time, 12s minimum gap) and per-site exponential backoff (60s → 15min).
 - **USAJobs** is included in the default source list. An API key improves rate limits but isn't required.
 - **`score_fit` truncates content.** JDs are capped at 6,000 chars, resumes at 3,000 chars before passing to Claude. Works fine for most listings; very verbose JDs lose their tail.
+- **Claude results are cached.** `score_fit` and `cover_letter_brief` results are memoised in Valkey for 24h, keyed on a hash of the truncated JD + resume actually sent. Re-scoring a job you have already looked at costs nothing. When a stored profile is used as the resume, only the fields the rubric reads (`summary`, `skills`, `experience`, `certifications`, `target_roles`) are sent — contact details, salary bands, work authorization and education are not.
+- **Token usage is logged.** Every Claude call emits a `event=claude_usage` line with `input_tokens`, `output_tokens`, the tool name and the user ID. A cache hit logs `cached=True` with no token counts at all — that absence is how you tell a hit from a miss.
+- **Anthropic prompt caching is deliberately not used.** Haiku 4.5 requires a 4,096-token minimum cacheable prefix; the largest prompt this server sends measures ~2,375. Adding `cache_control` would silently no-op (`cache_creation_input_tokens: 0`) rather than error, so it is not wired up. Switching to a model with a lower minimum costs more than it saves at this volume.
 - **`check_active`** returns `active=None` when a page loads but no clear status signal is found — treat as probably active.
 - **Postgres schema** migrates automatically on startup (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). No manual migrations needed.
 - **bge-m3 must be pulled** before the first `index_job` call: `ollama pull bge-m3`.
@@ -374,7 +387,8 @@ All containers in the Docker stack run with:
 - `user: 1000:1000` — no root processes
 - `cap_drop: ALL` — no Linux capabilities
 - `no-new-privileges: true` — prevents privilege escalation
-- Isolated `jobsearch-net` bridge network — database and cache ports are not exposed to the host
+- Private `jobsearch-net` bridge network for Postgres, Qdrant and Valkey — no database or cache port is exposed to the host or to `forge-net`
+- The MCP endpoint is published on `127.0.0.1:8383` only. The server performs no authentication of its own; it trusts the `X-User-ID` header its caller supplies, so it must sit behind a proxy that sets that header and authenticates the user
 
 ### Credential handling
 
@@ -384,7 +398,7 @@ Resume and profile data are stored in Postgres and embedded locally via Ollama �
 
 ### Dependency auditing
 
-CI runs `pip-audit` on every push. Dependencies are pinned in `requirements.txt` for reproducible builds.
+CI runs `pip-audit` against the installed environment on every push. Dependencies are declared in `pyproject.toml`, with an upper bound on `fastmcp` (`>=3.0,<4`) so a major release cannot land unreviewed. `ruff` is pinned to `0.16.0` with an explicit rule set for the same reason.
 
 ---
 

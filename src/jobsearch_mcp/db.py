@@ -134,9 +134,7 @@ async def get_tracked_jobs(user_id: str, status: str = "applied") -> list[dict]:
 
 async def get_all_tracked_jobs(user_id: str) -> list[dict]:
     """Get all tracked jobs for a user regardless of status, ordered by pipeline stage."""
-    status_order = (
-        "ARRAY['offered','interviewing','applied','seen','rejected','closed']"
-    )
+    status_order = "ARRAY['offered','interviewing','applied','seen','rejected','closed']"
     async with _pool.acquire() as conn:
         rows = await conn.fetch(
             f"""
@@ -181,9 +179,7 @@ async def upsert_user_profile(user_id: str, profile: dict) -> None:
 async def get_user_profile(user_id: str) -> dict | None:
     """Return a user's stored profile, or None if not set."""
     async with _pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT profile FROM user_profiles WHERE user_id = $1", user_id
-        )
+        row = await conn.fetchrow("SELECT profile FROM user_profiles WHERE user_id = $1", user_id)
     if not row:
         return None
     import json
@@ -194,9 +190,7 @@ async def get_user_profile(user_id: str) -> dict | None:
 async def delete_user_profile(user_id: str) -> bool:
     """Delete a user's stored profile. Returns False if it didn't exist."""
     async with _pool.acquire() as conn:
-        result = await conn.execute(
-            "DELETE FROM user_profiles WHERE user_id = $1", user_id
-        )
+        result = await conn.execute("DELETE FROM user_profiles WHERE user_id = $1", user_id)
     return result != "DELETE 0"
 
 
@@ -213,6 +207,4 @@ async def get_all_profiles_with_roles() -> list[dict]:
         )
     import json
 
-    return [
-        {"user_id": r["user_id"], "profile": json.loads(r["profile"])} for r in rows
-    ]
+    return [{"user_id": r["user_id"], "profile": json.loads(r["profile"])} for r in rows]

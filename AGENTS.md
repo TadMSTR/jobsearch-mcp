@@ -17,12 +17,14 @@ Plus a background `job-watcher` service that polls for new matches and sends ema
 ## Structure
 
 ```
-src/
-  server.py          # FastMCP entry point — registers tool modules
+pyproject.toml       # Packaging (hatchling), deps, ruff/pytest config
+src/jobsearch_mcp/
+  server.py          # FastMCP entry point — registers tool modules; main() console script
   db.py              # Postgres schema, pipeline tracking, profiles (asyncpg)
   enricher.py        # Multi-tier JD fetcher (Firecrawl → Crawl4AI → rawFetch) + Valkey cache
   vector.py          # Qdrant + Ollama bge-m3 embedding and search
   scorer.py          # Claude-powered fit scoring, profile parsing, resume tailoring
+  usage.py           # Anthropic token-usage logging + Valkey result cache
   job_watcher.py     # Background poller — email alerts for new matches
   tools/
     jobs.py          # Search, discovery, enrichment tools
@@ -79,9 +81,16 @@ Transport: streamable-http on port 8383.
 ## Testing
 
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -e ".[dev]"
 pytest -v
+ruff check src/ tests/
+ruff format --check src/ tests/
 ```
+
+`ruff` is pinned to `0.16.0` with an explicit `select` in `pyproject.toml` — do not
+rely on ruff's default rule set, which widens with each release. `E501` is waived for
+`scorer.py` only, because its long lines are Claude prompt templates whose exact text
+is measured for cost.
 
 ## URL safety
 

@@ -2,9 +2,9 @@
 
 from fastmcp import Context
 
-from ..db import upsert_user_profile, get_user_profile, delete_user_profile
+from ..db import delete_user_profile, get_user_profile, upsert_user_profile
 from ..enricher import enrich_job
-from ..scorer import tailor_resume_to_jd, build_profile_from_text
+from ..scorer import build_profile_from_text, tailor_resume_to_jd
 
 
 def _get_user_id(ctx: Context) -> str | None:
@@ -74,7 +74,9 @@ def register_tools(mcp):
         if not raw_text or not raw_text.strip():
             return {"status": "error", "error": "raw_text is required"}
         try:
-            profile = await build_profile_from_text(raw_text)
+            profile = await build_profile_from_text(
+                raw_text, user_id=_get_user_id(ctx) if ctx else None
+            )
             return {
                 "status": "ok",
                 "profile": profile,
@@ -88,7 +90,10 @@ def register_tools(mcp):
         """Tailor your stored resume profile to a specific job posting.
         Fetches the full JD, then uses Claude to rewrite highlights and summary
         to match JD keywords and priorities.
-        Returns the tailored profile for review — does NOT overwrite your stored profile."""
+        Returns ONLY what changed — tailored_summary, skills_reordered,
+        experience_changes (per-role revised highlights), and changes_summary.
+        Unchanged fields are omitted; call get_profile for the full stored profile.
+        Does NOT overwrite your stored profile."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
             return {
@@ -112,11 +117,14 @@ def register_tools(mcp):
             }
 
         try:
-            result = await tailor_resume_to_jd(jd=enriched["content"], profile=profile)
+            result = await tailor_resume_to_jd(
+                jd=enriched["content"], profile=profile, user_id=user_id
+            )
             result["url"] = url
             result["title"] = enriched.get("title", "")
             result["message"] = (
-                "Tailored profile above is for this job only — your stored profile is unchanged."
+                "These are the suggested changes for this job only — unchanged fields are "
+                "omitted, and your stored profile is untouched."
             )
             return result
         except Exception as e:

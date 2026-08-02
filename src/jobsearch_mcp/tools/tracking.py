@@ -3,13 +3,13 @@
 from fastmcp import Context
 
 from ..db import (
-    mark_job_seen,
-    mark_job_applied,
-    get_tracked_jobs,
-    get_all_tracked_jobs,
-    update_job_status,
-    add_job_note,
     VALID_STATUSES,
+    add_job_note,
+    get_all_tracked_jobs,
+    get_tracked_jobs,
+    mark_job_applied,
+    mark_job_seen,
+    update_job_status,
 )
 
 
@@ -23,9 +23,7 @@ def _get_user_id(ctx: Context) -> str | None:
 
 def register_tools(mcp):
     @mcp.tool()
-    async def mark_seen(
-        url: str, title: str = "", company: str = "", ctx: Context = None
-    ) -> dict:
+    async def mark_seen(url: str, title: str = "", company: str = "", ctx: Context = None) -> dict:
         """Mark a job as seen for the current user."""
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:
@@ -78,7 +76,10 @@ def register_tools(mcp):
         if status not in VALID_STATUSES:
             return {
                 "status": "error",
-                "error": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_STATUSES))}",
+                "error": (
+                    f"Invalid status '{status}'. "
+                    f"Must be one of: {', '.join(sorted(VALID_STATUSES))}"
+                ),
             }
         user_id = _get_user_id(ctx) if ctx else None
         if not user_id:

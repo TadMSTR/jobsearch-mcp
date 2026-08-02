@@ -33,9 +33,7 @@ def _is_site_backed_off(site: str) -> bool:
     info = _site_backoff.get(site)
     if not info:
         return False
-    if time.monotonic() < info["until"]:
-        return True
-    return False
+    return time.monotonic() < info["until"]
 
 
 def _record_site_failure(site: str):
@@ -45,9 +43,7 @@ def _record_site_failure(site: str):
     backoff = min(_BACKOFF_BASE * (2 ** (info["failures"] - 1)), _BACKOFF_MAX)
     info["until"] = time.monotonic() + backoff
     _site_backoff[site] = info
-    logger.warning(
-        f"jobspy: {site} backed off for {backoff}s (failure #{info['failures']})"
-    )
+    logger.warning(f"jobspy: {site} backed off for {backoff}s (failure #{info['failures']})")
 
 
 def _record_site_success(site: str):
