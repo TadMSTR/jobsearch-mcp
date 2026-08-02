@@ -54,7 +54,7 @@ Docker stack (included in docker-compose.yml):
 |---|---|
 | Postgres 16 | Per-user tracking, profiles, notes |
 | Qdrant | Vector index for semantic job matching |
-| Valkey | Enrichment cache (6h TTL) |
+| Valkey | Enrichment cache (6h TTL) + Claude result cache (24h TTL) |
 
 External services (configured via env vars):
 
@@ -91,6 +91,29 @@ ruff format --check src/ tests/
 rely on ruff's default rule set, which widens with each release. `E501` is waived for
 `scorer.py` only, because its long lines are Claude prompt templates whose exact text
 is measured for cost.
+
+## Anthropic API cost
+
+Every Claude call goes through `scorer._claude()`, which logs an `event=claude_usage`
+line with token counts, the tool name and the user ID. `score_fit` and
+`cover_letter_brief` results are cached in Valkey for 24h; a cache hit logs
+`cached=True` with no token counts at all.
+
+Three things that look like improvements but are not — all measured, not assumed:
+
+1. **Do not add prompt caching.** Haiku 4.5 requires a 4,096-token minimum cacheable
+   prefix. The largest prompt this server sends measures 2,375 at its truncation cap;
+   the cacheable-prefix candidate is 1,162. `cache_control` would return
+   `cache_creation_input_tokens: 0` forever — it no-ops silently rather than erroring,
+   so it looks like it worked.
+2. **Do not switch models to make caching viable.** A model with a 1,024-token minimum
+   costs roughly 1.7x more per workflow at current pricing.
+3. **Do not migrate FastMCP code.** 3.4.5 works. The pin has a `<4` ceiling; if you
+   raise it, test `lifespan=`, `ctx.request_context.request.headers`, and the
+   `host`/`port` kwargs to `mcp.run()`.
+
+Haiku's input:output price ratio is 1:5, so output tokens dominate the bill.
+Optimize call count first, then output size, then input size — not the reverse.
 
 ## URL safety
 
