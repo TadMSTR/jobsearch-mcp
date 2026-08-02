@@ -396,6 +396,8 @@ API keys (`ANTHROPIC_API_KEY`, `ADZUNA_APP_KEY`, `USAJOBS_API_KEY`, etc.) are re
 
 Resume and profile data are stored in Postgres and embedded locally via Ollama — they are not sent to any cloud embedding service.
 
+When a stored profile is used for scoring, only the fields the rubric actually reads (`summary`, `skills`, `experience`, `certifications`, `target_roles`) are sent to the Anthropic API. Your name, email, location, work authorization, salary expectations, notification address and education history are not transmitted.
+
 ### Dependency auditing
 
 CI runs `pip-audit` against the installed environment on every push. Dependencies are declared in `pyproject.toml`, with an upper bound on `fastmcp` (`>=3.0,<4`) so a major release cannot land unreviewed. `ruff` is pinned to `0.16.0` with an explicit rule set for the same reason.
