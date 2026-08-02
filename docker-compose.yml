@@ -63,7 +63,9 @@ services:
       jobsearch-valkey:
         condition: service_started
     networks:
-      - forge-net
+      # jobsearch-net only. The watcher talks to Postgres and to external job
+      # APIs / SMTP over the default gateway — it does not use Firecrawl,
+      # Crawl4AI, Ollama or Qdrant, so it has no reason to be on forge-net.
       - jobsearch-net
     restart: unless-stopped
 
@@ -76,6 +78,8 @@ services:
       - POSTGRES_DB=jobsearch
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
     networks:
       - jobsearch-net
     healthcheck:
@@ -90,6 +94,8 @@ services:
     container_name: jobsearch-qdrant
     volumes:
       - qdrant-data:/qdrant/storage
+    security_opt:
+      - no-new-privileges:true
     networks:
       - jobsearch-net
     restart: unless-stopped
@@ -97,6 +103,8 @@ services:
   jobsearch-valkey:
     image: valkey/valkey:7-alpine
     container_name: jobsearch-valkey
+    security_opt:
+      - no-new-privileges:true
     networks:
       - jobsearch-net
     restart: unless-stopped

@@ -383,10 +383,12 @@ All job listing URLs pass through `_validate_url` before enrichment. Only HTTPS 
 
 ### Container hardening
 
-All containers in the Docker stack run with:
+The two application containers (`jobsearch-mcp`, `job-watcher`) run with:
 - `user: 1000:1000` — no root processes
 - `cap_drop: ALL` — no Linux capabilities
 - `no-new-privileges: true` — prevents privilege escalation
+
+The three datastore containers (`jobsearch-postgres`, `jobsearch-qdrant`, `jobsearch-valkey`) run with `no-new-privileges: true` and are reachable only from the private `jobsearch-net`. They are not currently pinned to a non-root user or `cap_drop: ALL` — the upstream images manage their own privilege drop during initialisation, and forcing it here breaks first-run setup. They publish no host ports.
 - Private `jobsearch-net` bridge network for Postgres, Qdrant and Valkey — no database or cache port is exposed to the host or to `forge-net`
 - The MCP endpoint is published on `127.0.0.1:8383` only. The server performs no authentication of its own; it trusts the `X-User-ID` header its caller supplies, so it must sit behind a proxy that sets that header and authenticates the user
 
