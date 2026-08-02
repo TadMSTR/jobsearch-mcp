@@ -117,7 +117,24 @@ Optimize call count first, then output size, then input size — not the reverse
 
 ## URL safety
 
-`enricher.py` blocks non-HTTPS URLs and private/internal IP ranges (RFC 1918, loopback, link-local, IPv6 ULA). Do not remove these checks — they prevent SSRF.
+`enricher.py` blocks non-HTTPS URLs and any destination that is not globally routable. Do
+not remove or weaken these checks — they prevent SSRF, and `url` is a caller-supplied
+parameter on five tools (`get_job_detail`, `index_job`, `check_active`, `score_fit`,
+`cover_letter_brief`), so anything reaching this code is attacker-influenceable.
+
+Three parts, all load-bearing:
+
+1. `_validate_url` resolves hostnames via `_resolve_host` and checks **every** returned
+   address. Checking only literal-IP hosts (the pre-v2.2.0 behaviour) left
+   `https://name-resolving-to-10.0.0.1/` wide open.
+2. `_is_blocked_address` uses `is_global`, **not** `is_private` — the stdlib has reported
+   CGNAT (100.64.0.0/10) as non-private since Python 3.12.4. Multicast and reserved are
+   checked separately because they are absent from the IANA registry backing `is_global`.
+3. `_fetch_raw` follows redirects manually and re-validates each hop. Do not "simplify" it
+   back to `follow_redirects=True` — that reintroduces a bypass, since the original
+   validation never sees the redirect target.
+
+Residual, documented: DNS rebinding between validation and connection is not caught.
 
 ## Git workflow
 

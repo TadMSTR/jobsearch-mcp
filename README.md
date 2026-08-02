@@ -379,7 +379,17 @@ Install for development with `pip install -e ".[dev]"`. The package is importabl
 
 ### URL validation
 
-All job listing URLs pass through `_validate_url` before enrichment. Only HTTPS URLs are accepted — HTTP is blocked to prevent cleartext credential exposure. Private/internal IP ranges (RFC 1918, loopback, link-local, IPv6 ULA) are blocked to prevent SSRF.
+All job listing URLs pass through `_validate_url` before enrichment. Only HTTPS URLs are accepted — HTTP is blocked to prevent cleartext credential exposure.
+
+SSRF protection works on the resolved destination, not just the URL text:
+
+- Hostnames are resolved and **every** address they map to is checked. Checking only literal-IP hosts would leave `https://a-name-that-resolves-to-10.0.0.1/` open.
+- Anything not globally routable is rejected — RFC 1918, loopback, link-local, IPv6 ULA, `0.0.0.0/8`, CGNAT, cloud metadata (`169.254.169.254`), multicast, reserved space, and IPv4-mapped IPv6.
+- Redirects are followed manually (maximum 5) and each hop is re-validated, so a public URL cannot redirect into private space.
+
+Known limitation: validation resolves the host and then connects, so a DNS record that changes between those two steps (DNS rebinding) is not caught. Closing that requires pinning the connection to the validated address.
+
+Do not remove these checks.
 
 ### Container hardening
 

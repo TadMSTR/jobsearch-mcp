@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Repo standardization, forge deployment fixes, and Anthropic API cost reduction.
 
+### Security
+- **Fixed an SSRF gap in `enricher.py` that allowed reaching internal services.** Two independent holes combined: `_validate_url` only checked the private-address blocklist when the URL's host was already a literal IP, so `https://a-name-that-resolves-to-10.0.0.1/` passed; and `_fetch_raw` used `follow_redirects=True`, so a public `https` URL could `302` to `http://192.168.1.x/` and the redirect target was never re-checked. Because `url` is a direct parameter on five tools (`get_job_detail`, `index_job`, `check_active`, `score_fit`, `cover_letter_brief`), any caller could reach an arbitrary address and have the response reflected back in the tool result.
+  - Hostnames are now resolved with `socket.getaddrinfo` and **every** returned address is checked before the fetch — a single private address among several public ones is enough to reject.
+  - Redirects are followed manually (maximum 5) with the full scheme and address check re-run against each hop.
+  - The blocked set widened beyond RFC1918/loopback to everything not globally routable, plus multicast and reserved space — this closes `0.0.0.0` (which reaches localhost on Linux), `169.254.169.254` (cloud metadata), CGNAT, and IPv4-mapped IPv6 (`::ffff:10.0.0.1`). Note `is_global` is used rather than `is_private`: the stdlib has reported CGNAT as non-private since Python 3.12.4.
+  - Known residual: this is a resolve-then-connect check, so DNS rebinding between validation and the HTTP client's own lookup is not caught. Closing that requires pinning the connection to the validated address.
+  - 21 new tests in `tests/test_enricher.py` covering hostname resolution, redirect rejection, redirect-chain capping, and each non-public address class — including a regression test proving legitimate public redirects still work.
+
 ### Added
 - `OLLAMA_API_KEY` env var support — when set, adds `Authorization: Bearer <key>` to Ollama embed requests. No behavior change when unset.
 - `pyproject.toml` (hatchling). The project is now an installable package: `pip install -e ".[dev]"`, importable as `jobsearch_mcp`, with a `jobsearch-mcp` console script. Replaces `requirements.txt` / `requirements-dev.txt` / `pytest.ini`.
