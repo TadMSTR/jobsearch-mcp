@@ -175,7 +175,13 @@ Configure it via `job-watcher.env` (see [`job-watcher.env.example`](job-watcher.
 |---------|---------|---------------|
 | **Anthropic** | `score_fit`, `build_profile`, `tailor_resume`, `cover_letter_brief` | [console.anthropic.com](https://console.anthropic.com/) |
 | **Ollama (bge-m3)** | `index_job`, `match_jobs` — semantic search | Run locally; `ollama pull bge-m3` |
-| **Firecrawl Simple** | Full JD extraction (primary tier) | Self-host — [trieve-ai/firecrawl-simple](https://github.com/trieve-ai/firecrawl-simple) |
+| **Firecrawl** | Full JD extraction (primary tier) | Self-host — [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) (`/v2`) or the legacy [trieve-ai/firecrawl-simple](https://github.com/trieve-ai/firecrawl-simple) (`/v1`) |
+
+Set `FIRECRAWL_API_VERSION` to match whichever backend `FIRECRAWL_URL` points at — `v1` for
+firecrawl-simple, `v2` for upstream Firecrawl 2.x. It defaults to `v1`, and anything else
+raises at startup rather than falling back: the two APIs share no routes, so a mismatch fails
+every scrape rather than degrading, and the enricher's Crawl4AI fallback would otherwise hide
+that completely.
 
 **Optional:**
 

@@ -106,7 +106,7 @@ def register_tools(mcp):
     @mcp.tool()
     async def get_job_detail(url: str) -> dict:
         """Fetch a clean, full job description from a URL.
-        Uses Firecrawl v1 → Crawl4AI → rawFetch fallback. Results cached 6h."""
+        Uses Firecrawl → Crawl4AI → rawFetch fallback. Results cached 6h."""
         return await enrich_job(url)
 
     @mcp.tool()
