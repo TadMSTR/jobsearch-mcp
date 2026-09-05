@@ -235,7 +235,9 @@ class TestFetchFirecrawlV2:
         assert not v1.called
         assert result["content"] == "right tier"
 
-    @pytest.mark.parametrize("status", [404, 403, 500, 301, 199])
+    # 199 and 300 are the boundary cases: they pin both ends of the 2xx range,
+    # so widening either comparison is caught rather than surviving.
+    @pytest.mark.parametrize("status", [404, 403, 500, 301, 300, 199])
     async def test_rejects_non_2xx_page_status(self, monkeypatch, status):
         """A 200 from the API can still carry an error page. Verified live: a
         404 origin returns HTTP 200, success:true, statusCode 404 and the error
