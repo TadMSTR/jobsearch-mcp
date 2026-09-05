@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-04
+
+Firecrawl v2 readiness. Part 3 of the `firecrawl-upstream-2026-09` migration — the enricher can
+now speak upstream Firecrawl 2.x, but the default is unchanged and no live path moves until the
+cutover. Security audit: 0 findings.
+
 ### Added
 - **`FIRECRAWL_API_VERSION` (`v1` | `v2`, default `v1`)** — selects which Firecrawl API the enricher speaks. The legacy firecrawl-simple backend serves only `/v1`; upstream Firecrawl 2.x serves only `/v2`. They share no routes, so this is a configuration axis rather than a one-off path change. Unrecognised values raise at import, which for a server whose entrypoint imports the module is startup — a silent fallback onto the wrong prefix is precisely how a dead scrape tier goes on looking healthy behind the Crawl4AI fallback. Every Firecrawl URL is now built by a single `_firecrawl_endpoint()` helper so two call sites cannot drift onto different versions. Same variable name, values and default as `searxng-mcp`, which talks to the same backend.
 
