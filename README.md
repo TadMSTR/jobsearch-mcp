@@ -19,7 +19,7 @@ jobsearch-mcp is modular — start with the basics and add services as you need 
 | Capability | Required services |
 |---|---|
 | Search jobs + track applications | Adzuna key · `docker compose up` (JD extraction via raw HTTP fallback — quality varies without Firecrawl) |
-| Full job description extraction | Firecrawl Simple (self-hosted) |
+| Full job description extraction | Firecrawl (self-hosted — either `v1` firecrawl-simple or `v2` upstream Firecrawl; see [Prerequisites](#prerequisites)) |
 | AI fit scoring + profile building | Anthropic API key |
 | Semantic job matching | Ollama + bge-m3 |
 | Background email alerts | SMTP relay |
@@ -205,7 +205,7 @@ Postgres, Qdrant, and Valkey are included in the Docker stack — no external se
 | Qdrant | Vector index for semantic job matching |
 | Valkey | Enrichment cache — avoids re-fetching recently seen JDs |
 | Ollama (bge-m3) | Job and resume embeddings |
-| Firecrawl Simple / Crawl4AI | Multi-tier full JD extraction |
+| Firecrawl (`v1` or `v2`, see `FIRECRAWL_API_VERSION`) / Crawl4AI | Multi-tier full JD extraction |
 | Claude (`claude-haiku-4-5`) | Profile parsing, fit scoring, resume tailoring |
 
 ---
@@ -217,6 +217,11 @@ Postgres, Qdrant, and Valkey are included in the Docker stack — no external se
 Five containers. The datastores sit on a private `jobsearch-net` bridge network; the two
 application containers additionally join the external `forge-net` so they can reach
 Firecrawl, Crawl4AI and Ollama by container name.
+
+This is the generic setup this repo's `docker-compose.yml` declares. A given deployment may
+join the application containers to a differently-named external network instead — check your
+own compose file's `networks:` block for the network Firecrawl, Crawl4AI and Ollama actually
+sit on, rather than assuming `forge-net` by name.
 
 | Container | Image | Networks | Port |
 |-----------|-------|----------|------|
@@ -366,7 +371,7 @@ Install for development with `pip install -e ".[dev]"`. The package is importabl
 
 ## Notes
 
-- **Multi-tier enrichment.** `get_job_detail` and any tool that fetches a JD internally tries Firecrawl first, falls back to Crawl4AI if Firecrawl fails or is unavailable, then falls back to a raw HTTP fetch. Results are cached in Valkey — repeat calls for the same URL are instant.
+- **Multi-tier enrichment.** `get_job_detail` and any tool that fetches a JD internally tries Firecrawl first, falls back to Crawl4AI if Firecrawl fails or is unavailable, then falls back to a raw HTTP fetch. Results are cached in Valkey — repeat calls for the same URL are instant. Under `FIRECRAWL_API_VERSION=v2`, a non-2xx *page* status now counts as a tier miss rather than a success: v2 reports the origin's own HTTP status in `data.metadata.statusCode`, and a 2xx from the Firecrawl API itself does not mean the underlying page loaded — a 404'd origin previously came back as HTTP 200 with the error page's text, which got cached for 6h as the job description. `v1` reports no `statusCode`, so the guard is a no-op there.
 - **Indeed, Glassdoor, ZipRecruiter** are optional scraping-based sources via python-jobspy. Not in the default `search_jobs` call — add them explicitly to `sources`. These sites fight scrapers aggressively; the server uses a global rate limiter (one jobspy call at a time, 12s minimum gap) and per-site exponential backoff (60s → 15min).
 - **USAJobs** is included in the default source list. An API key improves rate limits but isn't required.
 - **`score_fit` truncates content.** JDs are capped at 6,000 chars, resumes at 3,000 chars before passing to Claude. Works fine for most listings; very verbose JDs lose their tail.
