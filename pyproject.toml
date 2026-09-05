@@ -27,7 +27,14 @@ dependencies = [
     "qdrant-client>=1.9.0",
     "feedparser>=6.0.0",
     "python-dotenv>=1.0.0",
-    "anthropic>=0.40.0",
+    # `<1` is load-bearing for the test suite, not a caution pin. anthropic 1.x
+    # moved its HTTP stack from httpx to httpx2; respx patches httpx, so it
+    # cannot intercept an httpx2 transport and every mocked Claude call in
+    # tests/ silently escapes to the real API instead of failing as an
+    # unmatched mock. 0.x is also what the deployed container runs (0.120.2).
+    # Raising this ceiling means first replacing respx for these tests —
+    # vikunja#651.
+    "anthropic>=0.40.0,<1",
     "python-jobspy>=1.1.75",
     "redis>=5.0.0",
 ]

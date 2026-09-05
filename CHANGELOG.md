@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`anthropic` gained an upper bound (`>=0.40.0,<1`) — without it the test suite's Claude mocks stop working silently.** `anthropic` 1.x moved its HTTP stack from `httpx` to `httpx2`. `respx` patches `httpx`, so it cannot see an `httpx2` transport: `respx.mock()` does not fail as an unmatched mock, it passes the request straight through to `https://api.anthropic.com`. On an unpinned install the 4 tests in `test_scorer.py` and 3 in `test_usage.py` were making real API calls and failing 401 on the dummy key the test modules set. Worse, a run with a *valid* key in the environment would have spent real tokens and passed, hiding the fact that transport-level mocking had stopped working at all. `0.x` is also what the deployed container runs (0.120.2), so this aligns CI with production rather than diverging from it. Suite goes from 58 passed / 7 failed to **65 passed**; runtime drops 4.24s to 0.48s, which is the absence of the network round-trips. Raising the ceiling to 1.x means first replacing respx for these tests — tracked in vikunja#651, deliberately not bundled here.
+
 ## [2.2.0] - 2026-08-01
 
 Repo standardization, forge deployment fixes, and Anthropic API cost reduction.
