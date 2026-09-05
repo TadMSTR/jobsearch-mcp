@@ -14,8 +14,11 @@ services:
       - VALKEY_URL=redis://jobsearch-valkey:6379
       - ADZUNA_APP_ID=${ADZUNA_APP_ID}
       - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
-      # Service URLs resolve by container name over forge-net.
+      # Service URLs resolve by container name over the shared network.
       - FIRECRAWL_URL=${FIRECRAWL_URL:-http://firecrawl-api:3002}
+      # Must match the backend FIRECRAWL_URL points at: firecrawl-simple serves
+      # only /v1, upstream Firecrawl 2.x only /v2. They share no routes.
+      - FIRECRAWL_API_VERSION=${FIRECRAWL_API_VERSION:-v1}
       - CRAWL4AI_URL=${CRAWL4AI_URL:-http://crawl4ai:11235}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}

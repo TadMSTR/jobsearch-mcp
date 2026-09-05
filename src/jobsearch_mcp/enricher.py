@@ -1,4 +1,4 @@
-"""Job content enrichment — Firecrawl v1 → Crawl4AI → rawFetch fallback with Valkey cache."""
+"""Job content enrichment — Firecrawl → Crawl4AI → rawFetch fallback with Valkey cache."""
 
 import asyncio
 import ipaddress
@@ -14,6 +14,50 @@ import redis.asyncio as redis
 logger = logging.getLogger(__name__)
 
 FIRECRAWL_URL = os.getenv("FIRECRAWL_URL", "http://firecrawl-api:3002")
+
+# Which Firecrawl API the client speaks. The legacy firecrawl-simple backend
+# serves only /v1; upstream Firecrawl 2.x serves only /v2. Both run on forge at
+# the same time during the firecrawl-upstream-2026-09 migration, so this is a
+# configuration axis rather than a one-off path fix.
+#
+# Defaults to v1: the live fetch path must not change on upgrade.
+#
+# Same env var, same values and same default as searxng-mcp, which hits the same
+# backend — two repos migrating one service should not invent two idioms.
+_FIRECRAWL_API_VERSIONS = ("v1", "v2")
+
+
+def _parse_firecrawl_api_version() -> str:
+    """Resolve FIRECRAWL_API_VERSION, raising on anything unrecognised.
+
+    Raising at import is deliberate, and import is startup for a server whose
+    entrypoint pulls in this module. A silent fallback would rebuild the exact
+    failure this migration keeps running into: a wrong version prefix 404s or
+    400s, the tier swallows it into the next fallback, and a wholly dead code
+    path goes on looking healthy (vikunja#644, #649, #652).
+    """
+    raw = os.getenv("FIRECRAWL_API_VERSION")
+    if raw is None or not raw.strip():
+        return "v1"
+    version = raw.strip().lower()
+    if version not in _FIRECRAWL_API_VERSIONS:
+        raise ValueError(
+            f"Invalid FIRECRAWL_API_VERSION: {raw!r}. "
+            f"Must be one of: {', '.join(_FIRECRAWL_API_VERSIONS)}."
+        )
+    return version
+
+
+FIRECRAWL_API_VERSION = _parse_firecrawl_api_version()
+
+
+def _firecrawl_endpoint(path: str, version: str | None = None) -> str:
+    """Build a versioned Firecrawl URL. `path` is the part after the version
+    segment — "scrape". The single place a Firecrawl path is assembled, so no
+    two call sites can drift onto different versions."""
+    return f"{FIRECRAWL_URL}/{version or FIRECRAWL_API_VERSION}/{path.lstrip('/')}"
+
+
 CRAWL4AI_URL = os.getenv("CRAWL4AI_URL", "http://host.docker.internal:11235")
 VALKEY_URL = os.getenv("VALKEY_URL", "redis://jobsearch-valkey:6379")
 ENRICH_TTL = 6 * 3600  # 6 hours
@@ -121,17 +165,44 @@ async def _get_redis() -> redis.Redis:
     return _redis
 
 
+def _page_status(metadata: dict) -> int | None:
+    """The origin's own HTTP status, if the backend reported one.
+
+    v2 puts it in `data.metadata.statusCode`. v1 (firecrawl-simple) does not
+    report it at all, so absence means "unknown", never "failed". Returns None
+    for anything non-integral rather than guessing.
+    """
+    raw = metadata.get("statusCode")
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
+
+
 async def _fetch_firecrawl(url: str) -> dict:
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{FIRECRAWL_URL}/v1/scrape",
+                _firecrawl_endpoint("scrape"),
                 json={"url": url, "formats": ["markdown"], "onlyMainContent": True},
             )
             resp.raise_for_status()
-            data = resp.json().get("data", {})
+            data = resp.json().get("data", {}) or {}
+        metadata = data.get("metadata", {}) or {}
+
+        # A 2xx from the API does not mean the page fetch succeeded. Verified
+        # live against upstream 2.11.162: scraping a URL whose origin returns
+        # 404 gives HTTP 200, `success: true`, `metadata.statusCode: 404` and
+        # the *error page's* text as markdown. Without this check that error
+        # page is cached in Valkey for 6h as the job description, and no caller
+        # can tell. v1 omits statusCode entirely, so this is a no-op there
+        # rather than a guess.
+        status = _page_status(metadata)
+        if status is not None and not 200 <= status < 300:
+            logger.warning("firecrawl page status %d for %s", status, url)
+            return {"content": "", "error": f"page status {status}"}
+
         content = data.get("markdown", "")
-        title = data.get("metadata", {}).get("title", "")
+        title = metadata.get("title", "")
         return {"content": content, "title": title}
     except Exception as e:
         logger.warning("firecrawl fetch failed for %s: %s", url, type(e).__name__)
@@ -192,7 +263,7 @@ async def _fetch_raw(url: str) -> dict:
 
 
 async def enrich_job(url: str) -> dict:
-    """Enrich a job URL with full content. Firecrawl v1 → Crawl4AI → rawFetch fallback.
+    """Enrich a job URL with full content. Firecrawl → Crawl4AI → rawFetch fallback.
     Results are cached in Valkey for 6 hours."""
     try:
         # to_thread: _validate_url now performs a DNS lookup, which would
@@ -210,7 +281,7 @@ async def enrich_job(url: str) -> dict:
     except Exception as e:
         logger.warning("valkey get failed: %s", type(e).__name__)
 
-    # Tier 1: Firecrawl v1
+    # Tier 1: Firecrawl (version per FIRECRAWL_API_VERSION)
     result = await _fetch_firecrawl(url)
     if result.get("content"):
         result["url"] = url
